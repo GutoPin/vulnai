@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VulnAI Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-8">
+
+    <div id="app" class="max-w-7xl mx-auto">
+        
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-emerald-400">Dashboard de Vulnerabilidades AI</h1>
+            
+            <button 
+                @click="ejecutarEscaneo" 
+                :disabled="isScanning"
+                class="bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-600 text-white font-bold py-2 px-6 rounded shadow transition-all flex items-center gap-2">
+                
+                <span v-if="!isScanning">🚀 Nuevo Escaneo</span>
+                <span v-else>⏳ Escaneando (esto tardará un rato)...</span>
+            </button>
+        </div>
+        
+        <div v-if="loadingTable" class="text-center text-gray-400 mb-4">
+            Cargando tabla de datos...
+        </div>
+        <div v-if="error" class="bg-red-900 text-red-200 p-4 rounded mb-4">
+            {{ error }}
+        </div>
+
+        <div v-if="!loadingTable && !error" class="overflow-x-auto bg-gray-800 rounded-lg shadow">
+            <table class="min-w-full text-left text-sm whitespace-nowrap">
+                <thead class="uppercase tracking-wider border-b-2 border-gray-700 bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-4">SO / Activo</th>
+                        <th class="px-6 py-4">Versión</th>
+                        <th class="px-6 py-4">CVE</th>
+                        <th class="px-6 py-4">Severidad</th>
+                        <th class="px-6 py-4">Descripción</th>
+                        <th class="px-6 py-4">Remediación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="vuln in vulnerabilidades" :key="vuln.cve_id" class="border-b border-gray-700 hover:bg-gray-750">
+                        <td class="px-6 py-4 font-medium">{{ vuln.so }}</td>
+                        <td class="px-6 py-4">{{ vuln.version }}</td>
+                        <td class="px-6 py-4 text-blue-400">
+                            <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank" class="hover:underline">
+                                {{ vuln.cve_id }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span :class="getSeverityClass(vuln.severity)" class="px-2 py-1 rounded text-xs font-bold">
+                                {{ vuln.severity || 'N/A' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-normal min-w-[300px]">{{ vuln.description }}</td>
+                        <td class="px-6 py-4 whitespace-normal min-w-[300px] text-emerald-300">{{ vuln.remediacion }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div v-if="vulnerabilidades.length === 0" class="p-6 text-center text-gray-400">
+                No hay datos aún. Haz clic en "Nuevo Escaneo" para empezar.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const vulnerabilidades = ref([]);
+                const loadingTable = ref(true);
+                const isScanning = ref(false);
+                const error = ref(null);
+
+                // Función para traer los datos a la tabla
+                const fetchData = async () => {
+                    loadingTable.value = true;
+                    error.value = null;
+                    try {
+                        const response = await fetch('/api/vulnerabilidades');
+                        const data = await response.json();
+                        
+                        if (data.error) throw new Error(data.error);
+                        
+                        vulnerabilidades.value = data;
+                    } catch (err) {
+                        // Si no existe el archivo aún, no es un error grave
+                        if(err.message.includes("No such file or directory")) {
+                            vulnerabilidades.value = [];
+                        } else {
+                            error.value = "Error al cargar datos: " + err.message;
+                        }
+                    } finally {
+                        loadingTable.value = false;
+                    }
+                };
+
+                // Función que presiona el botón!
+                const ejecutarEscaneo = async () => {
+                    isScanning.value = true;
+                    error.value = null;
+                    
+                    try {
+                        const response = await fetch('/api/scan', { method: 'POST' });
+                        const result = await response.json();
+                        
+                        if (result.error) throw new Error(result.error);
+                        
+                        // Si fue exitoso, recargamos la tabla para ver lo nuevo
+                        await fetchData();
+                        alert("¡Escaneo completado y tabla actualizada!");
+                        
+                    } catch (err) {
+                        error.value = "Fallo el escaneo: " + err.message;
+                    } finally {
+                        isScanning.value = false;
+                    }
+                };
+
+                const getSeverityClass = (sev) => {
+                    const s = (sev || '').toUpperCase();
+                    if (s.includes('CRITICAL')) return 'bg-red-600 text-white';
+                    if (s.includes('HIGH')) return 'bg-orange-500 text-white';
+                    if (s.includes('MEDIUM')) return 'bg-yellow-500 text-black';
+                    if (s.includes('LOW')) return 'bg-green-500 text-white';
+                    return 'bg-gray-600 text-white';
+                };
+
+                onMounted(() => {
+                    fetchData();
+                });
+
+                return {
+                    vulnerabilidades, loadingTable, isScanning, error,
+                    ejecutarEscaneo, getSeverityClass
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
