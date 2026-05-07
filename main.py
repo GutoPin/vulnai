@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import pandas as pd
 import subprocess # <-- ¡Nueva librería nativa para ejecutar scripts!
+import sys
 
 app = FastAPI()
 
@@ -27,8 +28,8 @@ def get_vulnerabilities():
 def run_scan():
     try:
         # Esto ejecuta tu script de inteligencia artificial
-        # Nota: Usamos 'python3' porque estás en Ubuntu/WSL
-        subprocess.run(["python3", "vulnerability_management.py"], check=True)
+        # Usamos sys.executable para invocar el mismo intérprete (venv) que corre uvicorn
+        subprocess.run([sys.executable, "vulnerability_management.py"], check=True)
         return {"status": "success", "message": "Escaneo finalizado"}
     except subprocess.CalledProcessError as e:
         return {"error": f"Error en el script: {e}"}
