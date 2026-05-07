@@ -1,0 +1,24 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Salidas generadas
+vulnerabilidades_completas.csv
+gemini_resumen_vulnerabilidades.csv
+*.xlsx
+
+# Variables de entorno (claves API)
+.env
+
+# Editores / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
