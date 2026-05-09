@@ -22,3 +22,5 @@ gemini_resumen_vulnerabilidades.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+CLAUDE.md
