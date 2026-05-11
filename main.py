@@ -50,10 +50,15 @@ async def upload_inventario(file: UploadFile = File(...)):
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     dst = os.path.join(UPLOADS_DIR, f"inventario{ext}")
     # Borra cualquier inventario previo (con extensión distinta) para evitar ambigüedad.
+    # En Windows el archivo puede estar bloqueado por otro proceso (Excel abierto,
+    # scanner en curso, etc.); si falla, lo dejamos pasar — el nuevo upload sobrescribirá.
     for old_ext in EXTENSIONES_VALIDAS:
         old_path = os.path.join(UPLOADS_DIR, f"inventario{old_ext}")
         if old_path != dst and os.path.exists(old_path):
-            os.remove(old_path)
+            try:
+                os.remove(old_path)
+            except OSError as e:
+                print(f"WARN: no se pudo borrar inventario previo {old_path}: {e}")
 
     with open(dst, "wb") as out:
         shutil.copyfileobj(file.file, out)

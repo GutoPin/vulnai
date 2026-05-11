@@ -61,7 +61,9 @@
                     Debe contener al menos la columna <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Guest OS</code>
                     (también acepta <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">OS</code> o
                     <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Sistema Operativo</code>).
-                    Opcional: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Name</code>.
+                    Opcional: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Name</code> y
+                    <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Criticidad</code>
+                    (Alta/Media/Baja, default Media — se usa para calcular la prioridad combinada con el CVSS).
                     En Excel los datos deben estar en la hoja <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Master List</code>.
                 </p>
 
@@ -180,7 +182,9 @@
             <!-- ===================================================== -->
             <!-- Sección 3 — Resultados                                 -->
             <!-- ===================================================== -->
-            <section v-if="vulnerabilidades.length > 0 || resumenEjecutivo" class="space-y-6">
+            <!-- Mientras hay un escaneo en curso ocultamos la sección para no mostrar -->
+            <!-- datos del escaneo anterior junto al timeline activo (sería confuso). -->
+            <section v-if="!isScanning && (vulnerabilidades.length > 0 || resumenEjecutivo)" class="space-y-6">
 
                 <!-- Card: Resumen ejecutivo -->
                 <div v-if="resumenEjecutivo"
@@ -197,10 +201,23 @@
                     <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
                         <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Total CVEs</div>
                         <div class="text-3xl font-bold mt-1">{{ vulnerabilidades.length }}</div>
+                        <div class="text-xs text-slate-400 mt-1">
+                            <span v-if="inventario.n_activos">
+                                {{ inventario.n_activos }} activo(s) en inventario · {{ activosUnicos }} SO(s) con CVEs
+                            </span>
+                            <span v-else>{{ activosUnicos }} SO(s) único(s) con CVEs</span>
+                        </div>
                     </div>
                     <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
-                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Activos analizados</div>
-                        <div class="text-3xl font-bold mt-1">{{ activosUnicos }}</div>
+                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por prioridad</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span v-for="p in ['Prioritaria','Por validar','Planificada']" :key="p"
+                                v-show="conteoPrioridad[p]"
+                                :class="['px-2 py-0.5 rounded text-xs font-bold', getPriorityClass(p)]">
+                                {{ p }}: {{ conteoPrioridad[p] || 0 }}
+                            </span>
+                            <span v-if="!Object.keys(conteoPrioridad).length" class="text-xs text-slate-400">Sin datos</span>
+                        </div>
                     </div>
                     <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
                         <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por severidad</div>
@@ -213,6 +230,18 @@
                     </div>
                 </div>
 
+                <!-- Leyenda explicativa de prioridades -->
+                <div v-if="vulnerabilidades.length > 0"
+                     class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 text-xs text-slate-600 dark:text-slate-400">
+                    <div class="font-semibold text-slate-700 dark:text-slate-300 mb-2">¿Cómo se calcula la Prioridad?</div>
+                    <p class="mb-2">Combina la severidad técnica del CVE (CVSS) con la criticidad del activo en el negocio:</p>
+                    <ul class="space-y-1 list-disc pl-5">
+                        <li><span class="font-semibold text-red-600 dark:text-red-400">Prioritaria</span> — CVSS ≥ 7 + activo Alta. Atención inmediata.</li>
+                        <li><span class="font-semibold text-amber-600 dark:text-amber-400">Por validar</span> — ambigüedad entre técnico y negocio. Requiere revisión humana.</li>
+                        <li><span class="font-semibold text-sky-600 dark:text-sky-400">Planificada</span> — riesgo real pero no urgente. Se agenda en mantenimiento normal.</li>
+                    </ul>
+                </div>
+
                 <!-- Card: Tabla con filtros + descargas -->
                 <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 justify-between">
@@ -223,6 +252,11 @@
                         <div class="flex flex-wrap items-center gap-2">
                             <input v-model="filtroBusqueda" type="text" placeholder="Buscar SO, CVE o descripción…"
                                 class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56">
+                            <select v-model="filtroPrioridad"
+                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">Todas las prioridades</option>
+                                <option v-for="p in prioridadesDisponibles" :key="p" :value="p">{{ p }}</option>
+                            </select>
                             <select v-model="filtroSeveridad"
                                 class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                                 <option value="">Todas las severidades</option>
@@ -246,6 +280,7 @@
                                     <th class="px-4 py-3">SO / Activo</th>
                                     <th class="px-4 py-3">CVE</th>
                                     <th class="px-4 py-3">Severidad</th>
+                                    <th class="px-4 py-3" title="Prioridad combinando CVSS técnico + criticidad del activo">Prioridad</th>
                                     <th class="px-4 py-3 min-w-[260px]">Descripción técnica</th>
                                     <th class="px-4 py-3 min-w-[260px]">Explicación simple</th>
                                     <th class="px-4 py-3 min-w-[260px]">Remediación</th>
@@ -256,17 +291,27 @@
                                     class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                                     <td class="px-4 py-3 font-medium align-top">
                                         <div>{{ vuln.so }}</div>
-                                        <div class="text-xs text-slate-400">{{ vuln.version }}</div>
+                                        <div class="text-xs text-slate-400">
+                                            <span v-if="vuln.criticidad">crítica: {{ vuln.criticidad }}</span>
+                                            <span v-else>{{ vuln.version }}</span>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 align-top">
                                         <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank"
                                             class="text-cyan-600 dark:text-cyan-400 hover:underline">
                                             {{ vuln.cve_id }}
                                         </a>
+                                        <div v-if="vuln.cvss_score" class="text-xs text-slate-400 mt-0.5">CVSS {{ vuln.cvss_score }}</div>
                                     </td>
                                     <td class="px-4 py-3 align-top">
                                         <span :class="['px-2 py-0.5 rounded text-xs font-bold', getSeverityClass(vuln.severity)]">
                                             {{ vuln.severity || 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <span :class="['px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap', getPriorityClass(vuln.prioridad)]"
+                                              :title="getPriorityDescription(vuln.prioridad)">
+                                            {{ vuln.prioridad || '—' }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 align-top whitespace-normal text-slate-700 dark:text-slate-300">{{ vuln.description }}</td>
@@ -462,16 +507,31 @@
 
                 // Filtros y derivados
                 const filtroSeveridad = ref('');
+                const filtroPrioridad = ref('');
                 const filtroBusqueda = ref('');
                 const severidadesDisponibles = computed(() => {
                     const s = new Set(vulnerabilidades.value.map(v => (v.severity || '').toUpperCase()).filter(Boolean));
                     return Array.from(s);
+                });
+                const prioridadesDisponibles = computed(() => {
+                    // Orden fijo para que aparezcan siempre en el mismo orden lógico.
+                    const orden = ['Prioritaria', 'Por validar', 'Planificada'];
+                    const present = new Set(vulnerabilidades.value.map(v => v.prioridad).filter(Boolean));
+                    return orden.filter(p => present.has(p));
                 });
                 const conteoSeveridad = computed(() => {
                     const out = {};
                     for (const v of vulnerabilidades.value) {
                         const s = (v.severity || 'N/A').toUpperCase();
                         out[s] = (out[s] || 0) + 1;
+                    }
+                    return out;
+                });
+                const conteoPrioridad = computed(() => {
+                    const out = {};
+                    for (const v of vulnerabilidades.value) {
+                        if (!v.prioridad) continue;
+                        out[v.prioridad] = (out[v.prioridad] || 0) + 1;
                     }
                     return out;
                 });
@@ -482,6 +542,7 @@
                     const q = filtroBusqueda.value.toLowerCase().trim();
                     return vulnerabilidades.value.filter(v => {
                         if (filtroSeveridad.value && (v.severity || '').toUpperCase() !== filtroSeveridad.value) return false;
+                        if (filtroPrioridad.value && v.prioridad !== filtroPrioridad.value) return false;
                         if (!q) return true;
                         return (v.so + ' ' + v.cve_id + ' ' + v.description).toLowerCase().includes(q);
                     });
@@ -496,6 +557,19 @@
                     if (s.includes('MEDIUM')) return 'bg-yellow-400 text-slate-900';
                     if (s.includes('LOW')) return 'bg-green-500 text-white';
                     return 'bg-slate-400 text-white';
+                };
+
+                const getPriorityClass = (p) => {
+                    if (p === 'Prioritaria') return 'bg-red-600 text-white';
+                    if (p === 'Por validar') return 'bg-amber-500 text-slate-900';
+                    if (p === 'Planificada') return 'bg-sky-500 text-white';
+                    return 'bg-slate-400 text-white';
+                };
+                const getPriorityDescription = (p) => {
+                    if (p === 'Prioritaria')  return 'CVSS alto + activo crítico → atención inmediata';
+                    if (p === 'Por validar')  return 'Combinación ambigua → requiere revisión humana';
+                    if (p === 'Planificada')  return 'Riesgo bajo o moderado → mantenimiento normal';
+                    return '';
                 };
 
                 onMounted(async () => {
@@ -517,8 +591,11 @@
                     isScanning, stages, progress, ejecutarEscaneo,
                     stageStatus, stageIconClass, stageTextClass, lastDetailFor,
                     vulnerabilidades, resumenEjecutivo,
-                    filtroSeveridad, filtroBusqueda, severidadesDisponibles, conteoSeveridad, activosUnicos, vulnsFiltradas,
-                    canScan, getSeverityClass,
+                    filtroSeveridad, filtroPrioridad, filtroBusqueda,
+                    severidadesDisponibles, prioridadesDisponibles,
+                    conteoSeveridad, conteoPrioridad,
+                    activosUnicos, vulnsFiltradas,
+                    canScan, getSeverityClass, getPriorityClass, getPriorityDescription,
                 };
             }
         }).mount('#app');
