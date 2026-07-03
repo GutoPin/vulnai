@@ -1,148 +1,604 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VulnAI Dashboard</title>
+    <script>
+        // Configura el modo dark de Tailwind para que use la clase `.dark` en <html>.
+        // Aplica la preferencia guardada antes de cargar Tailwind para evitar flash blanco.
+        tailwind = window.tailwind || {};
+        const _saved = localStorage.getItem('theme');
+        const _initialDark = _saved ? _saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', _initialDark);
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+    </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100,116,139,.4); border-radius: 4px; }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-8">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen transition-colors">
 
-    <div id="app" class="max-w-7xl mx-auto">
-        
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-emerald-400">Dashboard de Vulnerabilidades AI</h1>
-            
-            <button 
-                @click="ejecutarEscaneo" 
-                :disabled="isScanning"
-                class="bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-600 text-white font-bold py-2 px-6 rounded shadow transition-all flex items-center gap-2">
-                
-                <span v-if="!isScanning">🚀 Nuevo Escaneo</span>
-                <span v-else>⏳ Escaneando (esto tardará un rato)...</span>
-            </button>
-        </div>
-        
-        <div v-if="loadingTable" class="text-center text-gray-400 mb-4">
-            Cargando tabla de datos...
-        </div>
-        <div v-if="error" class="bg-red-900 text-red-200 p-4 rounded mb-4">
-            {{ error }}
-        </div>
+    <div id="app" v-cloak>
 
-        <div v-if="!loadingTable && !error" class="overflow-x-auto bg-gray-800 rounded-lg shadow">
-            <table class="min-w-full text-left text-sm whitespace-nowrap">
-                <thead class="uppercase tracking-wider border-b-2 border-gray-700 bg-gray-700">
-                    <tr>
-                        <th class="px-6 py-4">SO / Activo</th>
-                        <th class="px-6 py-4">Versión</th>
-                        <th class="px-6 py-4">CVE</th>
-                        <th class="px-6 py-4">Severidad</th>
-                        <th class="px-6 py-4">Descripción</th>
-                        <th class="px-6 py-4">Remediación</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="vuln in vulnerabilidades" :key="vuln.cve_id" class="border-b border-gray-700 hover:bg-gray-750">
-                        <td class="px-6 py-4 font-medium">{{ vuln.so }}</td>
-                        <td class="px-6 py-4">{{ vuln.version }}</td>
-                        <td class="px-6 py-4 text-blue-400">
-                            <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank" class="hover:underline">
-                                {{ vuln.cve_id }}
-                            </a>
-                        </td>
-                        <td class="px-6 py-4">
-                            <span :class="getSeverityClass(vuln.severity)" class="px-2 py-1 rounded text-xs font-bold">
-                                {{ vuln.severity || 'N/A' }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-normal min-w-[300px]">{{ vuln.description }}</td>
-                        <td class="px-6 py-4 whitespace-normal min-w-[300px] text-emerald-300">{{ vuln.remediacion }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div v-if="vulnerabilidades.length === 0" class="p-6 text-center text-gray-400">
-                No hay datos aún. Haz clic en "Nuevo Escaneo" para empezar.
+        <!-- Header sticky -->
+        <header class="sticky top-0 z-30 backdrop-blur bg-white/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white text-lg">🛡️</div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight">VulnAI Dashboard</h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Análisis de vulnerabilidades con IA</p>
+                    </div>
+                </div>
+                <button @click="toggleTheme"
+                    class="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'">
+                    <span v-if="isDark">☀️</span>
+                    <span v-else>🌙</span>
+                </button>
             </div>
-        </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+
+            <!-- ===================================================== -->
+            <!-- Sección 1 — Inventario                                 -->
+            <!-- ===================================================== -->
+            <section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-sm font-bold flex items-center justify-center">1</span>
+                    <h2 class="font-semibold text-base">Cargar inventario de activos</h2>
+                </div>
+                <p class="text-sm text-slate-500 dark:text-slate-400 ml-9 mb-4">
+                    Sube un archivo <strong>.xlsx</strong>, <strong>.xls</strong> o <strong>.csv</strong>.
+                    Debe contener al menos la columna <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Guest OS</code>
+                    (también acepta <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">OS</code> o
+                    <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Sistema Operativo</code>).
+                    Opcional: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Name</code> y
+                    <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Criticidad</code>
+                    (Alta/Media/Baja, default Media — se usa para calcular la prioridad combinada con el CVSS).
+                    En Excel los datos deben estar en la hoja <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Master List</code>.
+                </p>
+
+                <!-- Drop zone -->
+                <label
+                    @dragover.prevent="dragOver = true"
+                    @dragleave.prevent="dragOver = false"
+                    @drop.prevent="handleDrop($event)"
+                    :class="['flex flex-col items-center justify-center gap-2 px-6 py-8 rounded-xl border-2 border-dashed cursor-pointer transition',
+                             dragOver
+                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                                : 'border-slate-300 dark:border-slate-700 hover:border-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50']">
+                    <input type="file" class="hidden" accept=".xlsx,.xls,.csv" @change="handleFileChange">
+                    <div class="text-3xl">📁</div>
+                    <div class="text-sm font-medium">
+                        Arrastra tu archivo aquí o <span class="text-emerald-600 dark:text-emerald-400 underline">haz click para seleccionarlo</span>
+                    </div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">.xlsx, .xls o .csv</div>
+                </label>
+
+                <!-- Estado del inventario -->
+                <div v-if="uploadStatus === 'loading'" class="mt-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <div class="animate-spin w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
+                    Validando archivo...
+                </div>
+
+                <div v-if="uploadStatus === 'ok'"
+                    class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                    <div class="flex items-center gap-2">
+                        <span class="text-emerald-600 dark:text-emerald-400 text-lg">✓</span>
+                        <span class="font-medium text-sm">{{ inventario.filename || inventario.saved_as }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                            {{ inventario.n_activos }} activos detectados
+                        </span>
+                    </div>
+                    <p v-if="inventario.ejemplos?.length" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Ejemplos: {{ inventario.ejemplos.join(' · ') }}
+                    </p>
+                </div>
+
+                <div v-if="uploadStatus === 'error'"
+                    class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                    <div class="flex items-start gap-2">
+                        <span class="text-red-600 dark:text-red-400 text-lg leading-tight">✕</span>
+                        <div class="flex-1">
+                            <div class="font-medium text-sm text-red-800 dark:text-red-200">Archivo inválido</div>
+                            <p class="text-xs text-red-700 dark:text-red-300 mt-0.5">{{ uploadError }}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================== -->
+            <!-- Sección 2 — Estado del escaneo                         -->
+            <!-- ===================================================== -->
+            <section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-sm font-bold flex items-center justify-center">2</span>
+                        <h2 class="font-semibold text-base">Ejecutar escaneo</h2>
+                    </div>
+                    <button
+                        @click="ejecutarEscaneo"
+                        :disabled="!canScan"
+                        class="px-5 py-2 rounded-lg font-medium text-sm transition
+                               bg-emerald-600 hover:bg-emerald-500 text-white shadow
+                               disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:shadow-none">
+                        <span v-if="!isScanning">🚀 Iniciar escaneo</span>
+                        <span v-else>⏳ Escaneando...</span>
+                    </button>
+                </div>
+
+                <!-- Hint cuando no hay inventario -->
+                <p v-if="!isScanning && uploadStatus !== 'ok'"
+                    class="ml-9 text-sm text-slate-500 dark:text-slate-400">
+                    Sube un inventario válido en el paso 1 para habilitar el escaneo.
+                </p>
+
+                <!-- Timeline vertical durante el escaneo -->
+                <div v-if="isScanning || progress.finished" class="ml-2 mt-2">
+                    <ol class="space-y-3 border-l-2 border-slate-200 dark:border-slate-800 ml-3">
+                        <li v-for="(stage, idx) in stages" :key="idx" class="relative pl-6">
+                            <!-- Icono -->
+                            <span class="absolute -left-[11px] top-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                                :class="stageIconClass(idx + 1)">
+                                <span v-if="stageStatus(idx + 1) === 'done'">✓</span>
+                                <span v-else-if="stageStatus(idx + 1) === 'active'" class="animate-spin">⏳</span>
+                                <span v-else>·</span>
+                            </span>
+                            <div class="text-sm font-medium" :class="stageTextClass(idx + 1)">{{ stage }}</div>
+                            <div v-if="stageStatus(idx + 1) === 'active' && progress.detail"
+                                class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                └─ {{ progress.detail }}
+                            </div>
+                            <div v-else-if="stageStatus(idx + 1) === 'done' && lastDetailFor(idx + 1)"
+                                class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                {{ lastDetailFor(idx + 1) }}
+                            </div>
+                        </li>
+                    </ol>
+
+                    <!-- Estado final -->
+                    <div v-if="progress.finished && !progress.error"
+                        class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-sm">
+                        <span class="text-emerald-600 dark:text-emerald-400 font-medium">✓ Escaneo completado.</span>
+                        Los resultados aparecen abajo.
+                    </div>
+                    <div v-if="progress.finished && progress.error"
+                        class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm">
+                        <div class="font-medium text-red-800 dark:text-red-200">✕ El escaneo falló</div>
+                        <p class="text-xs text-red-700 dark:text-red-300 mt-1">{{ progress.error }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===================================================== -->
+            <!-- Sección 3 — Resultados                                 -->
+            <!-- ===================================================== -->
+            <!-- Mientras hay un escaneo en curso ocultamos la sección para no mostrar -->
+            <!-- datos del escaneo anterior junto al timeline activo (sería confuso). -->
+            <section v-if="!isScanning && (vulnerabilidades.length > 0 || resumenEjecutivo)" class="space-y-6">
+
+                <!-- Card: Resumen ejecutivo -->
+                <div v-if="resumenEjecutivo"
+                    class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-xl">📋</span>
+                        <h2 class="font-semibold text-base">Resumen ejecutivo</h2>
+                    </div>
+                    <div class="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ resumenEjecutivo }}</div>
+                </div>
+
+                <!-- Card: Estadísticas -->
+                <div v-if="vulnerabilidades.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
+                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Total CVEs</div>
+                        <div class="text-3xl font-bold mt-1">{{ vulnerabilidades.length }}</div>
+                        <div class="text-xs text-slate-400 mt-1">
+                            <span v-if="inventario.n_activos">
+                                {{ inventario.n_activos }} activo(s) en inventario · {{ activosUnicos }} SO(s) con CVEs
+                            </span>
+                            <span v-else>{{ activosUnicos }} SO(s) único(s) con CVEs</span>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
+                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por prioridad</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span v-for="p in ['Prioritaria','Por validar','Planificada']" :key="p"
+                                v-show="conteoPrioridad[p]"
+                                :class="['px-2 py-0.5 rounded text-xs font-bold', getPriorityClass(p)]">
+                                {{ p }}: {{ conteoPrioridad[p] || 0 }}
+                            </span>
+                            <span v-if="!Object.keys(conteoPrioridad).length" class="text-xs text-slate-400">Sin datos</span>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
+                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por severidad</div>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span v-for="(n, sev) in conteoSeveridad" :key="sev"
+                                :class="['px-2 py-0.5 rounded text-xs font-bold', getSeverityClass(sev)]">
+                                {{ sev }}: {{ n }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leyenda explicativa de prioridades -->
+                <div v-if="vulnerabilidades.length > 0"
+                     class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 text-xs text-slate-600 dark:text-slate-400">
+                    <div class="font-semibold text-slate-700 dark:text-slate-300 mb-2">¿Cómo se calcula la Prioridad?</div>
+                    <p class="mb-2">Combina la severidad técnica del CVE (CVSS) con la criticidad del activo en el negocio:</p>
+                    <ul class="space-y-1 list-disc pl-5">
+                        <li><span class="font-semibold text-red-600 dark:text-red-400">Prioritaria</span> — CVSS ≥ 7 + activo Alta. Atención inmediata.</li>
+                        <li><span class="font-semibold text-amber-600 dark:text-amber-400">Por validar</span> — ambigüedad entre técnico y negocio. Requiere revisión humana.</li>
+                        <li><span class="font-semibold text-sky-600 dark:text-sky-400">Planificada</span> — riesgo real pero no urgente. Se agenda en mantenimiento normal.</li>
+                    </ul>
+                </div>
+
+                <!-- Card: Tabla con filtros + descargas -->
+                <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">📊</span>
+                            <h2 class="font-semibold text-base">Vulnerabilidades detectadas</h2>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input v-model="filtroBusqueda" type="text" placeholder="Buscar SO, CVE o descripción…"
+                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56">
+                            <select v-model="filtroPrioridad"
+                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">Todas las prioridades</option>
+                                <option v-for="p in prioridadesDisponibles" :key="p" :value="p">{{ p }}</option>
+                            </select>
+                            <select v-model="filtroSeveridad"
+                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="">Todas las severidades</option>
+                                <option v-for="sev in severidadesDisponibles" :key="sev" :value="sev">{{ sev }}</option>
+                            </select>
+                            <a href="/api/csv" download
+                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                📥 CSV
+                            </a>
+                            <a href="/api/excel" download
+                                class="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">
+                                📊 Excel
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto scrollbar-thin">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="text-xs uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400">
+                                <tr>
+                                    <th class="px-4 py-3">SO / Activo</th>
+                                    <th class="px-4 py-3">CVE</th>
+                                    <th class="px-4 py-3">Severidad</th>
+                                    <th class="px-4 py-3" title="Prioridad combinando CVSS técnico + criticidad del activo">Prioridad</th>
+                                    <th class="px-4 py-3 min-w-[260px]">Descripción técnica</th>
+                                    <th class="px-4 py-3 min-w-[260px]">Explicación simple</th>
+                                    <th class="px-4 py-3 min-w-[260px]">Remediación</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tr v-for="vuln in vulnsFiltradas" :key="vuln.cve_id + vuln.so"
+                                    class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                                    <td class="px-4 py-3 font-medium align-top">
+                                        <div>{{ vuln.so }}</div>
+                                        <div class="text-xs text-slate-400">
+                                            <span v-if="vuln.criticidad">crítica: {{ vuln.criticidad }}</span>
+                                            <span v-else>{{ vuln.version }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank"
+                                            class="text-cyan-600 dark:text-cyan-400 hover:underline">
+                                            {{ vuln.cve_id }}
+                                        </a>
+                                        <div v-if="vuln.cvss_score" class="text-xs text-slate-400 mt-0.5">CVSS {{ vuln.cvss_score }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <span :class="['px-2 py-0.5 rounded text-xs font-bold', getSeverityClass(vuln.severity)]">
+                                            {{ vuln.severity || 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <span :class="['px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap', getPriorityClass(vuln.prioridad)]"
+                                              :title="getPriorityDescription(vuln.prioridad)">
+                                            {{ vuln.prioridad || '—' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 align-top whitespace-normal text-slate-700 dark:text-slate-300">{{ vuln.description }}</td>
+                                    <td class="px-4 py-3 align-top whitespace-normal text-slate-600 dark:text-slate-400">{{ vuln.explicacion_simple || '—' }}</td>
+                                    <td class="px-4 py-3 align-top whitespace-normal text-emerald-700 dark:text-emerald-300">{{ vuln.remediacion }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div v-if="vulnsFiltradas.length === 0" class="px-6 py-10 text-center text-slate-400">
+                            Sin resultados que coincidan con los filtros.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Estado vacío inicial -->
+            <section v-else-if="!isScanning"
+                class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-slate-500 dark:text-slate-400">
+                Aún no hay resultados. Sube tu inventario y ejecuta el primer escaneo.
+            </section>
+        </main>
+
+        <footer class="max-w-7xl mx-auto px-6 py-6 text-xs text-slate-400 dark:text-slate-600">
+            VulnAI · Pipeline NVD + Gemini
+        </footer>
     </div>
 
     <script>
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+        const STAGES = [
+            'Cargando inventario',
+            'Consultando NVD',
+            'Filtrando y organizando',
+            'Preparando bloques para IA',
+            'Procesando con Gemini',
+            'Generando resumen ejecutivo',
+            'Consolidando resultados',
+            'Generando Excel',
+        ];
 
         createApp({
             setup() {
-                const vulnerabilidades = ref([]);
-                const loadingTable = ref(true);
-                const isScanning = ref(false);
-                const error = ref(null);
+                // Theme
+                const isDark = ref(document.documentElement.classList.contains('dark'));
+                const toggleTheme = () => {
+                    isDark.value = !isDark.value;
+                    document.documentElement.classList.toggle('dark', isDark.value);
+                    localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
+                };
 
-                // Función para traer los datos a la tabla
-                const fetchData = async () => {
-                    loadingTable.value = true;
-                    error.value = null;
+                // Inventario / upload
+                const dragOver = ref(false);
+                const inventario = ref({});
+                const uploadStatus = ref(''); // '', 'loading', 'ok', 'error'
+                const uploadError = ref('');
+
+                const subirArchivo = async (file) => {
+                    uploadStatus.value = 'loading';
+                    uploadError.value = '';
+                    const fd = new FormData();
+                    fd.append('file', file);
                     try {
-                        const response = await fetch('/api/vulnerabilidades');
-                        const data = await response.json();
-                        
-                        if (data.error) throw new Error(data.error);
-                        
-                        vulnerabilidades.value = data;
-                    } catch (err) {
-                        // Si no existe el archivo aún, no es un error grave
-                        if(err.message.includes("No such file or directory")) {
-                            vulnerabilidades.value = [];
-                        } else {
-                            error.value = "Error al cargar datos: " + err.message;
+                        const r = await fetch('/api/upload-inventario', { method: 'POST', body: fd });
+                        const data = await r.json();
+                        if (!r.ok) {
+                            uploadStatus.value = 'error';
+                            uploadError.value = data.detail || 'Error desconocido';
+                            return;
                         }
-                    } finally {
-                        loadingTable.value = false;
+                        inventario.value = data;
+                        uploadStatus.value = 'ok';
+                    } catch (e) {
+                        uploadStatus.value = 'error';
+                        uploadError.value = e.message;
                     }
                 };
 
-                // Función que presiona el botón!
+                const handleFileChange = (e) => {
+                    const f = e.target.files[0];
+                    if (f) subirArchivo(f);
+                };
+                const handleDrop = (e) => {
+                    dragOver.value = false;
+                    const f = e.dataTransfer.files[0];
+                    if (f) subirArchivo(f);
+                };
+
+                // Scan + progreso
+                const isScanning = ref(false);
+                const stages = STAGES;
+                const progress = ref({ stage_idx: 0, total: 8, label: '', detail: '', finished: false, error: null });
+                const stageDetails = ref({}); // memo del último detail visto en cada etapa
+                let pollHandle = null;
+
+                const stageStatus = (n) => {
+                    if (progress.value.error && n >= progress.value.stage_idx) return 'pending';
+                    if (n < progress.value.stage_idx) return 'done';
+                    if (n === progress.value.stage_idx && !progress.value.finished) return 'active';
+                    if (progress.value.finished && !progress.value.error) return 'done';
+                    return 'pending';
+                };
+                const stageIconClass = (n) => {
+                    const s = stageStatus(n);
+                    if (s === 'done') return 'bg-emerald-500 text-white';
+                    if (s === 'active') return 'bg-cyan-500 text-white';
+                    return 'bg-slate-200 dark:bg-slate-700 text-slate-400';
+                };
+                const stageTextClass = (n) => {
+                    const s = stageStatus(n);
+                    if (s === 'done') return 'text-slate-700 dark:text-slate-300';
+                    if (s === 'active') return 'text-cyan-700 dark:text-cyan-300 font-semibold';
+                    return 'text-slate-400';
+                };
+                const lastDetailFor = (n) => stageDetails.value[n] || '';
+
+                const fetchProgress = async () => {
+                    try {
+                        const r = await fetch('/api/scan-progress');
+                        const data = await r.json();
+                        progress.value = data;
+                        if (data.detail && data.stage_idx) {
+                            stageDetails.value[data.stage_idx] = data.detail;
+                        }
+                        if (data.finished) {
+                            stopPolling();
+                            isScanning.value = false;
+                            // Recarga datos al terminar
+                            await Promise.all([fetchVulnerabilidades(), fetchResumen()]);
+                        }
+                    } catch (e) {
+                        console.error('Error en polling de progreso:', e);
+                    }
+                };
+                const startPolling = () => {
+                    if (pollHandle) return;
+                    pollHandle = setInterval(fetchProgress, 1500);
+                };
+                const stopPolling = () => {
+                    if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
+                };
+
                 const ejecutarEscaneo = async () => {
                     isScanning.value = true;
-                    error.value = null;
-                    
+                    progress.value = { stage_idx: 0, total: 8, label: 'Iniciando...', detail: '', finished: false, error: null };
+                    stageDetails.value = {};
                     try {
-                        const response = await fetch('/api/scan', { method: 'POST' });
-                        const result = await response.json();
-                        
-                        if (result.error) throw new Error(result.error);
-                        
-                        // Si fue exitoso, recargamos la tabla para ver lo nuevo
-                        await fetchData();
-                        alert("¡Escaneo completado y tabla actualizada!");
-                        
-                    } catch (err) {
-                        error.value = "Fallo el escaneo: " + err.message;
-                    } finally {
+                        const r = await fetch('/api/scan', { method: 'POST' });
+                        if (!r.ok) {
+                            const err = await r.json();
+                            throw new Error(err.detail || 'Error desconocido');
+                        }
+                        startPolling();
+                    } catch (e) {
                         isScanning.value = false;
+                        progress.value = { ...progress.value, finished: true, error: e.message };
                     }
                 };
+
+                // Resultados
+                const vulnerabilidades = ref([]);
+                const resumenEjecutivo = ref('');
+
+                const fetchVulnerabilidades = async () => {
+                    try {
+                        const r = await fetch('/api/vulnerabilidades');
+                        const data = await r.json();
+                        vulnerabilidades.value = Array.isArray(data) ? data : [];
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+                const fetchResumen = async () => {
+                    try {
+                        const r = await fetch('/api/resumen-ejecutivo');
+                        const data = await r.json();
+                        resumenEjecutivo.value = (data.resumen || '').trim();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+                const fetchInventarioActual = async () => {
+                    try {
+                        const r = await fetch('/api/inventario-actual');
+                        const data = await r.json();
+                        if (data.ok) {
+                            inventario.value = { ...data, filename: data.saved_as.split(/[\\/]/).pop() };
+                            uploadStatus.value = 'ok';
+                        }
+                    } catch (e) { /* noop */ }
+                };
+
+                // Filtros y derivados
+                const filtroSeveridad = ref('');
+                const filtroPrioridad = ref('');
+                const filtroBusqueda = ref('');
+                const severidadesDisponibles = computed(() => {
+                    const s = new Set(vulnerabilidades.value.map(v => (v.severity || '').toUpperCase()).filter(Boolean));
+                    return Array.from(s);
+                });
+                const prioridadesDisponibles = computed(() => {
+                    // Orden fijo para que aparezcan siempre en el mismo orden lógico.
+                    const orden = ['Prioritaria', 'Por validar', 'Planificada'];
+                    const present = new Set(vulnerabilidades.value.map(v => v.prioridad).filter(Boolean));
+                    return orden.filter(p => present.has(p));
+                });
+                const conteoSeveridad = computed(() => {
+                    const out = {};
+                    for (const v of vulnerabilidades.value) {
+                        const s = (v.severity || 'N/A').toUpperCase();
+                        out[s] = (out[s] || 0) + 1;
+                    }
+                    return out;
+                });
+                const conteoPrioridad = computed(() => {
+                    const out = {};
+                    for (const v of vulnerabilidades.value) {
+                        if (!v.prioridad) continue;
+                        out[v.prioridad] = (out[v.prioridad] || 0) + 1;
+                    }
+                    return out;
+                });
+                const activosUnicos = computed(() => {
+                    return new Set(vulnerabilidades.value.map(v => v.so)).size;
+                });
+                const vulnsFiltradas = computed(() => {
+                    const q = filtroBusqueda.value.toLowerCase().trim();
+                    return vulnerabilidades.value.filter(v => {
+                        if (filtroSeveridad.value && (v.severity || '').toUpperCase() !== filtroSeveridad.value) return false;
+                        if (filtroPrioridad.value && v.prioridad !== filtroPrioridad.value) return false;
+                        if (!q) return true;
+                        return (v.so + ' ' + v.cve_id + ' ' + v.description).toLowerCase().includes(q);
+                    });
+                });
+
+                const canScan = computed(() => uploadStatus.value === 'ok' && !isScanning.value);
 
                 const getSeverityClass = (sev) => {
                     const s = (sev || '').toUpperCase();
                     if (s.includes('CRITICAL')) return 'bg-red-600 text-white';
                     if (s.includes('HIGH')) return 'bg-orange-500 text-white';
-                    if (s.includes('MEDIUM')) return 'bg-yellow-500 text-black';
+                    if (s.includes('MEDIUM')) return 'bg-yellow-400 text-slate-900';
                     if (s.includes('LOW')) return 'bg-green-500 text-white';
-                    return 'bg-gray-600 text-white';
+                    return 'bg-slate-400 text-white';
                 };
 
-                onMounted(() => {
-                    fetchData();
+                const getPriorityClass = (p) => {
+                    if (p === 'Prioritaria') return 'bg-red-600 text-white';
+                    if (p === 'Por validar') return 'bg-amber-500 text-slate-900';
+                    if (p === 'Planificada') return 'bg-sky-500 text-white';
+                    return 'bg-slate-400 text-white';
+                };
+                const getPriorityDescription = (p) => {
+                    if (p === 'Prioritaria')  return 'CVSS alto + activo crítico → atención inmediata';
+                    if (p === 'Por validar')  return 'Combinación ambigua → requiere revisión humana';
+                    if (p === 'Planificada')  return 'Riesgo bajo o moderado → mantenimiento normal';
+                    return '';
+                };
+
+                onMounted(async () => {
+                    await Promise.all([fetchVulnerabilidades(), fetchResumen(), fetchInventarioActual()]);
+                    // Si hay un escaneo aún en curso al cargar la página, retomamos polling.
+                    const r = await fetch('/api/scan-progress');
+                    const data = await r.json();
+                    if (data && !data.finished && data.stage_idx > 0) {
+                        isScanning.value = true;
+                        startPolling();
+                    }
                 });
+                onUnmounted(stopPolling);
 
                 return {
-                    vulnerabilidades, loadingTable, isScanning, error,
-                    ejecutarEscaneo, getSeverityClass
-                }
+                    isDark, toggleTheme,
+                    dragOver, inventario, uploadStatus, uploadError,
+                    handleFileChange, handleDrop,
+                    isScanning, stages, progress, ejecutarEscaneo,
+                    stageStatus, stageIconClass, stageTextClass, lastDetailFor,
+                    vulnerabilidades, resumenEjecutivo,
+                    filtroSeveridad, filtroPrioridad, filtroBusqueda,
+                    severidadesDisponibles, prioridadesDisponibles,
+                    conteoSeveridad, conteoPrioridad,
+                    activosUnicos, vulnsFiltradas,
+                    canScan, getSeverityClass, getPriorityClass, getPriorityDescription,
+                };
             }
-        }).mount('#app')
+        }).mount('#app');
     </script>
 </body>
 </html>

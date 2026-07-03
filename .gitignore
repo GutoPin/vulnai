@@ -1,4 +1,23 @@
 venv/
 __pycache__/
-*.csv
 .env
+
+# Inventarios subidos por el usuario (datos sensibles)
+uploads/
+
+# Salidas generadas por el scanner
+*.csv
+*.xlsx
+progress.json
+resumen_ejecutivo.txt
+
+
+# Editores / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+CLAUDE.md
