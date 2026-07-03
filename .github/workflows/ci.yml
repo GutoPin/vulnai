@@ -1,0 +1,38 @@
+name: Pipeline CI VulnAI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: 1. Clonar el repositorio
+      uses: actions/checkout@v4
+
+    - name: 2. Configurar entorno Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        # Prioriza la eficiencia: usa caché para no descargar todo desde cero en cada ejecución
+        cache: 'pip' 
+
+    - name: 3. Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        # flake8 para análisis estático, pytest para pruebas
+        pip install flake8 pytest httpx
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: 4. Análisis estático (Linter)
+      run: |
+        # Detiene el pipeline si hay errores críticos de sintaxis o variables no definidas
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: 5. Ejecución de Pruebas Unitarias
+      run: |
+        # Ejecuta cualquier archivo que empiece con test_
+        pytest
