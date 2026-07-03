@@ -1,0 +1,4 @@
+# Dependencias de desarrollo (tests + lint). Instalar junto a requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+pytest==8.4.2
+flake8==7.3.0

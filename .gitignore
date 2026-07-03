@@ -6,11 +6,15 @@ __pycache__/
 uploads/
 
 # Salidas generadas por el scanner
+data/
 *.csv
 *.xlsx
 progress.json
 resumen_ejecutivo.txt
 
+# Tooling
+.pytest_cache/
+node_modules/
 
 # Editores / OS
 .vscode/
