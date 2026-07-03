@@ -12,336 +12,431 @@
         const _initialDark = _saved ? _saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
         document.documentElement.classList.toggle('dark', _initialDark);
     </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: 'class' };
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        display: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                    },
+                },
+            },
+        };
     </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         [v-cloak] { display: none; }
+        html, body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
         .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100,116,139,.4); border-radius: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100,116,139,.35); border-radius: 4px; }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen transition-colors">
+<body class="bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-zinc-300 antialiased">
 
-    <div id="app" v-cloak>
+    <div id="app" v-cloak class="flex h-screen overflow-hidden">
 
-        <!-- Header sticky -->
-        <header class="sticky top-0 z-30 backdrop-blur bg-white/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800">
-            <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center text-white text-lg">🛡️</div>
-                    <div>
-                        <h1 class="font-bold text-lg leading-tight">VulnAI Dashboard</h1>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Análisis de vulnerabilidades con IA</p>
-                    </div>
-                </div>
+        <!-- ===================================================== -->
+        <!-- Sidebar                                                -->
+        <!-- ===================================================== -->
+        <aside class="w-16 shrink-0 flex flex-col items-center py-5 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800">
+            <div class="w-9 h-9 rounded-lg bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center font-display font-bold text-sm mb-8 select-none">
+                V
+            </div>
+            <nav class="flex flex-col items-center gap-1">
+                <button @click="currentView = 'dashboard'" :class="navBtnClass('dashboard')" title="Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                    </svg>
+                </button>
+                <button @click="currentView = 'settings'" :class="navBtnClass('settings')" title="Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.216.456a1.125 1.125 0 01-1.37-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a7.686 7.686 0 010-.255c.007-.378-.138-.75-.43-.991l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.213-1.28z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+            </nav>
+
+            <div class="mt-auto flex flex-col items-center gap-1">
                 <button @click="toggleTheme"
-                    class="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    class="w-10 h-10 flex items-center justify-center rounded-lg text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-700 dark:hover:text-zinc-200 transition"
                     :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'">
-                    <span v-if="isDark">☀️</span>
-                    <span v-else>🌙</span>
+                    <svg v-if="isDark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                    </svg>
                 </button>
             </div>
-        </header>
+        </aside>
 
-        <main class="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
 
-            <!-- ===================================================== -->
-            <!-- Sección 1 — Inventario                                 -->
-            <!-- ===================================================== -->
-            <section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-sm font-bold flex items-center justify-center">1</span>
-                    <h2 class="font-semibold text-base">Cargar inventario de activos</h2>
-                </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400 ml-9 mb-4">
-                    Sube un archivo <strong>.xlsx</strong>, <strong>.xls</strong> o <strong>.csv</strong>.
-                    Debe contener al menos la columna <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Guest OS</code>
-                    (también acepta <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">OS</code> o
-                    <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Sistema Operativo</code>).
-                    Opcional: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Name</code> y
-                    <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Criticidad</code>
-                    (Alta/Media/Baja, default Media — se usa para calcular la prioridad combinada con el CVSS).
-                    En Excel los datos deben estar en la hoja <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">Master List</code>.
-                </p>
-
-                <!-- Drop zone -->
-                <label
-                    @dragover.prevent="dragOver = true"
-                    @dragleave.prevent="dragOver = false"
-                    @drop.prevent="handleDrop($event)"
-                    :class="['flex flex-col items-center justify-center gap-2 px-6 py-8 rounded-xl border-2 border-dashed cursor-pointer transition',
-                             dragOver
-                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                                : 'border-slate-300 dark:border-slate-700 hover:border-emerald-400 hover:bg-slate-50 dark:hover:bg-slate-800/50']">
-                    <input type="file" class="hidden" accept=".xlsx,.xls,.csv" @change="handleFileChange">
-                    <div class="text-3xl">📁</div>
-                    <div class="text-sm font-medium">
-                        Arrastra tu archivo aquí o <span class="text-emerald-600 dark:text-emerald-400 underline">haz click para seleccionarlo</span>
+            <!-- Header -->
+            <header class="sticky top-0 z-30 bg-white/90 dark:bg-zinc-900/90 backdrop-blur border-b border-slate-200 dark:border-zinc-800">
+                <div class="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+                    <div>
+                        <h1 class="font-display font-bold text-lg leading-tight text-slate-900 dark:text-white">
+                            {{ currentView === 'dashboard' ? 'Vulnerability Dashboard' : 'Settings' }}
+                        </h1>
+                        <p class="text-xs text-slate-500 dark:text-zinc-500">Análisis de vulnerabilidades con IA</p>
                     </div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">.xlsx, .xls o .csv</div>
-                </label>
-
-                <!-- Estado del inventario -->
-                <div v-if="uploadStatus === 'loading'" class="mt-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <div class="animate-spin w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
-                    Validando archivo...
-                </div>
-
-                <div v-if="uploadStatus === 'ok'"
-                    class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                    <div class="flex items-center gap-2">
-                        <span class="text-emerald-600 dark:text-emerald-400 text-lg">✓</span>
-                        <span class="font-medium text-sm">{{ inventario.filename || inventario.saved_as }}</span>
-                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
-                            {{ inventario.n_activos }} activos detectados
-                        </span>
-                    </div>
-                    <p v-if="inventario.ejemplos?.length" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Ejemplos: {{ inventario.ejemplos.join(' · ') }}
-                    </p>
-                </div>
-
-                <div v-if="uploadStatus === 'error'"
-                    class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <div class="flex items-start gap-2">
-                        <span class="text-red-600 dark:text-red-400 text-lg leading-tight">✕</span>
-                        <div class="flex-1">
-                            <div class="font-medium text-sm text-red-800 dark:text-red-200">Archivo inválido</div>
-                            <p class="text-xs text-red-700 dark:text-red-300 mt-0.5">{{ uploadError }}</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ===================================================== -->
-            <!-- Sección 2 — Estado del escaneo                         -->
-            <!-- ===================================================== -->
-            <section class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        <span class="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-sm font-bold flex items-center justify-center">2</span>
-                        <h2 class="font-semibold text-base">Ejecutar escaneo</h2>
-                    </div>
-                    <button
-                        @click="ejecutarEscaneo"
-                        :disabled="!canScan"
-                        class="px-5 py-2 rounded-lg font-medium text-sm transition
-                               bg-emerald-600 hover:bg-emerald-500 text-white shadow
-                               disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:shadow-none">
-                        <span v-if="!isScanning">🚀 Iniciar escaneo</span>
-                        <span v-else>⏳ Escaneando...</span>
+                    <button v-if="currentView === 'dashboard'" @click="cargarDatosDemo"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-slate-400 dark:hover:border-zinc-600 hover:text-slate-700 dark:hover:text-zinc-200 transition"
+                        title="Carga datos de prueba en el navegador, sin llamar al backend">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5c-1.194 1.194-.345 3.25 1.591 3.25h10.818c1.936 0 2.785-2.056 1.591-3.25l-4.091-4.091a2.25 2.25 0 01-.659-1.591V3.104M9.75 3.104h4.5M9.75 3.104h-1.5m6 0h1.5" />
+                        </svg>
+                        Cargar datos de prueba
                     </button>
                 </div>
-
-                <!-- Hint cuando no hay inventario -->
-                <p v-if="!isScanning && uploadStatus !== 'ok'"
-                    class="ml-9 text-sm text-slate-500 dark:text-slate-400">
-                    Sube un inventario válido en el paso 1 para habilitar el escaneo.
-                </p>
-
-                <!-- Timeline vertical durante el escaneo -->
-                <div v-if="isScanning || progress.finished" class="ml-2 mt-2">
-                    <ol class="space-y-3 border-l-2 border-slate-200 dark:border-slate-800 ml-3">
-                        <li v-for="(stage, idx) in stages" :key="idx" class="relative pl-6">
-                            <!-- Icono -->
-                            <span class="absolute -left-[11px] top-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
-                                :class="stageIconClass(idx + 1)">
-                                <span v-if="stageStatus(idx + 1) === 'done'">✓</span>
-                                <span v-else-if="stageStatus(idx + 1) === 'active'" class="animate-spin">⏳</span>
-                                <span v-else>·</span>
-                            </span>
-                            <div class="text-sm font-medium" :class="stageTextClass(idx + 1)">{{ stage }}</div>
-                            <div v-if="stageStatus(idx + 1) === 'active' && progress.detail"
-                                class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                └─ {{ progress.detail }}
-                            </div>
-                            <div v-else-if="stageStatus(idx + 1) === 'done' && lastDetailFor(idx + 1)"
-                                class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                {{ lastDetailFor(idx + 1) }}
-                            </div>
-                        </li>
-                    </ol>
-
-                    <!-- Estado final -->
-                    <div v-if="progress.finished && !progress.error"
-                        class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-sm">
-                        <span class="text-emerald-600 dark:text-emerald-400 font-medium">✓ Escaneo completado.</span>
-                        Los resultados aparecen abajo.
-                    </div>
-                    <div v-if="progress.finished && progress.error"
-                        class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm">
-                        <div class="font-medium text-red-800 dark:text-red-200">✕ El escaneo falló</div>
-                        <p class="text-xs text-red-700 dark:text-red-300 mt-1">{{ progress.error }}</p>
-                    </div>
-                </div>
-            </section>
+            </header>
 
             <!-- ===================================================== -->
-            <!-- Sección 3 — Resultados                                 -->
+            <!-- Vista: Settings (placeholder)                          -->
             <!-- ===================================================== -->
-            <!-- Mientras hay un escaneo en curso ocultamos la sección para no mostrar -->
-            <!-- datos del escaneo anterior junto al timeline activo (sería confuso). -->
-            <section v-if="!isScanning && (vulnerabilidades.length > 0 || resumenEjecutivo)" class="space-y-6">
-
-                <!-- Card: Resumen ejecutivo -->
-                <div v-if="resumenEjecutivo"
-                    class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6">
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="text-xl">📋</span>
-                        <h2 class="font-semibold text-base">Resumen ejecutivo</h2>
-                    </div>
-                    <div class="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 whitespace-pre-line">{{ resumenEjecutivo }}</div>
+            <main v-if="currentView === 'settings'" class="max-w-7xl w-full mx-auto px-8 py-8">
+                <div class="bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 p-10 text-center text-slate-400 dark:text-zinc-600 text-sm">
+                    Settings — próximamente.
                 </div>
+            </main>
 
-                <!-- Card: Estadísticas -->
-                <div v-if="vulnerabilidades.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
-                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Total CVEs</div>
-                        <div class="text-3xl font-bold mt-1">{{ vulnerabilidades.length }}</div>
-                        <div class="text-xs text-slate-400 mt-1">
-                            <span v-if="inventario.n_activos">
-                                {{ inventario.n_activos }} activo(s) en inventario · {{ activosUnicos }} SO(s) con CVEs
-                            </span>
-                            <span v-else>{{ activosUnicos }} SO(s) único(s) con CVEs</span>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
-                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por prioridad</div>
-                        <div class="flex flex-wrap gap-1.5">
-                            <span v-for="p in ['Prioritaria','Por validar','Planificada']" :key="p"
-                                v-show="conteoPrioridad[p]"
-                                :class="['px-2 py-0.5 rounded text-xs font-bold', getPriorityClass(p)]">
-                                {{ p }}: {{ conteoPrioridad[p] || 0 }}
-                            </span>
-                            <span v-if="!Object.keys(conteoPrioridad).length" class="text-xs text-slate-400">Sin datos</span>
-                        </div>
-                    </div>
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5">
-                        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Por severidad</div>
-                        <div class="flex flex-wrap gap-1.5">
-                            <span v-for="(n, sev) in conteoSeveridad" :key="sev"
-                                :class="['px-2 py-0.5 rounded text-xs font-bold', getSeverityClass(sev)]">
-                                {{ sev }}: {{ n }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            <!-- ===================================================== -->
+            <!-- Vista: Dashboard                                       -->
+            <!-- ===================================================== -->
+            <main v-else class="max-w-7xl w-full mx-auto px-8 py-8 space-y-6">
 
-                <!-- Leyenda explicativa de prioridades -->
-                <div v-if="vulnerabilidades.length > 0"
-                     class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-5 text-xs text-slate-600 dark:text-slate-400">
-                    <div class="font-semibold text-slate-700 dark:text-slate-300 mb-2">¿Cómo se calcula la Prioridad?</div>
-                    <p class="mb-2">Combina la severidad técnica del CVE (CVSS) con la criticidad del activo en el negocio:</p>
-                    <ul class="space-y-1 list-disc pl-5">
-                        <li><span class="font-semibold text-red-600 dark:text-red-400">Prioritaria</span> — CVSS ≥ 7 + activo Alta. Atención inmediata.</li>
-                        <li><span class="font-semibold text-amber-600 dark:text-amber-400">Por validar</span> — ambigüedad entre técnico y negocio. Requiere revisión humana.</li>
-                        <li><span class="font-semibold text-sky-600 dark:text-sky-400">Planificada</span> — riesgo real pero no urgente. Se agenda en mantenimiento normal.</li>
-                    </ul>
-                </div>
+                <!-- ===================================================== -->
+                <!-- Sección 1 — Inventario                                 -->
+                <!-- ===================================================== -->
+                <section class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-6">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="w-6 h-6 rounded-full bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold flex items-center justify-center">1</span>
+                        <h2 class="font-display font-semibold text-sm text-slate-900 dark:text-white">Cargar inventario de activos</h2>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-zinc-500 ml-8 mb-4">
+                        Sube un archivo <strong class="text-slate-600 dark:text-zinc-400">.xlsx</strong>, <strong class="text-slate-600 dark:text-zinc-400">.xls</strong> o <strong class="text-slate-600 dark:text-zinc-400">.csv</strong>.
+                        Debe contener al menos la columna <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">Guest OS</code>
+                        (también acepta <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">OS</code> o
+                        <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">Sistema Operativo</code>).
+                        Opcional: <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">Name</code> y
+                        <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">Criticidad</code>
+                        (Alta/Media/Baja, default Media — se usa para calcular la prioridad combinada con el CVSS).
+                        En Excel los datos deben estar en la hoja <code class="px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-xs">Master List</code>.
+                    </p>
 
-                <!-- Card: Tabla con filtros + descargas -->
-                <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 justify-between">
+                    <!-- Drop zone -->
+                    <label
+                        @dragover.prevent="dragOver = true"
+                        @dragleave.prevent="dragOver = false"
+                        @drop.prevent="handleDrop($event)"
+                        :class="['flex flex-col items-center justify-center gap-2 px-6 py-8 rounded-xl border-2 border-dashed cursor-pointer transition',
+                                 dragOver
+                                    ? 'border-slate-500 bg-slate-50 dark:bg-zinc-800/60'
+                                    : 'border-slate-300 dark:border-zinc-700 hover:border-slate-400 dark:hover:border-zinc-600 hover:bg-slate-50 dark:hover:bg-zinc-800/30']">
+                        <input type="file" class="hidden" accept=".xlsx,.xls,.csv" @change="handleFileChange">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.4" stroke="currentColor" class="w-8 h-8 text-slate-400 dark:text-zinc-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12m4.5-4.5v13.5" />
+                        </svg>
+                        <div class="text-sm font-medium text-slate-600 dark:text-zinc-400">
+                            Arrastra tu archivo aquí o <span class="text-slate-900 dark:text-zinc-100 underline">haz click para seleccionarlo</span>
+                        </div>
+                        <div class="text-xs text-slate-400 dark:text-zinc-600">.xlsx, .xls o .csv</div>
+                    </label>
+
+                    <!-- Estado del inventario -->
+                    <div v-if="uploadStatus === 'loading'" class="mt-4 flex items-center gap-2 text-sm text-slate-500 dark:text-zinc-500">
+                        <div class="animate-spin w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full"></div>
+                        Validando archivo...
+                    </div>
+
+                    <div v-if="uploadStatus === 'ok'"
+                        class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
                         <div class="flex items-center gap-2">
-                            <span class="text-xl">📊</span>
-                            <h2 class="font-semibold text-base">Vulnerabilidades detectadas</h2>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="font-medium text-sm">{{ inventario.filename || inventario.saved_as }}</span>
+                            <span class="text-xs px-2 py-0.5 rounded bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                                {{ inventario.n_activos }} activos detectados
+                            </span>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">
-                            <input v-model="filtroBusqueda" type="text" placeholder="Buscar SO, CVE o descripción…"
-                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56">
-                            <select v-model="filtroPrioridad"
-                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                <option value="">Todas las prioridades</option>
-                                <option v-for="p in prioridadesDisponibles" :key="p" :value="p">{{ p }}</option>
-                            </select>
-                            <select v-model="filtroSeveridad"
-                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                <option value="">Todas las severidades</option>
-                                <option v-for="sev in severidadesDisponibles" :key="sev" :value="sev">{{ sev }}</option>
-                            </select>
-                            <a href="/api/csv" download
-                                class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                                📥 CSV
-                            </a>
-                            <a href="/api/excel" download
-                                class="px-3 py-1.5 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">
-                                📊 Excel
-                            </a>
+                        <p v-if="inventario.ejemplos?.length" class="mt-1 text-xs text-slate-500 dark:text-zinc-500">
+                            Ejemplos: {{ inventario.ejemplos.join(' · ') }}
+                        </p>
+                    </div>
+
+                    <div v-if="uploadStatus === 'error'"
+                        class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <div class="flex items-start gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="flex-1">
+                                <div class="font-medium text-sm text-red-800 dark:text-red-200">Archivo inválido</div>
+                                <p class="text-xs text-red-700 dark:text-red-300 mt-0.5">{{ uploadError }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===================================================== -->
+                <!-- Sección 2 — Estado del escaneo                         -->
+                <!-- ===================================================== -->
+                <section class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold flex items-center justify-center">2</span>
+                            <h2 class="font-display font-semibold text-sm text-slate-900 dark:text-white">Ejecutar escaneo</h2>
+                        </div>
+                        <button
+                            @click="ejecutarEscaneo"
+                            :disabled="!canScan"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition
+                                   bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900
+                                   disabled:bg-slate-200 dark:disabled:bg-zinc-800 disabled:text-slate-400 dark:disabled:text-zinc-600 disabled:cursor-not-allowed">
+                            <template v-if="!isScanning">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                </svg>
+                                Iniciar escaneo
+                            </template>
+                            <template v-else>
+                                <div class="animate-spin w-4 h-4 border-2 border-white/60 dark:border-zinc-900/60 border-t-transparent rounded-full"></div>
+                                Escaneando...
+                            </template>
+                        </button>
+                    </div>
+
+                    <!-- Hint cuando no hay inventario -->
+                    <p v-if="!isScanning && uploadStatus !== 'ok'"
+                        class="ml-8 text-sm text-slate-500 dark:text-zinc-500">
+                        Sube un inventario válido en el paso 1 para habilitar el escaneo.
+                    </p>
+
+                    <!-- Timeline vertical durante el escaneo -->
+                    <div v-if="isScanning || progress.finished" class="ml-2 mt-2">
+                        <ol class="space-y-3 border-l-2 border-slate-200 dark:border-zinc-800 ml-3">
+                            <li v-for="(stage, idx) in stages" :key="idx" class="relative pl-6">
+                                <!-- Icono -->
+                                <span class="absolute -left-[11px] top-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                                    :class="stageIconClass(idx + 1)">
+                                    <svg v-if="stageStatus(idx + 1) === 'done'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-3 h-3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                    </svg>
+                                    <div v-else-if="stageStatus(idx + 1) === 'active'" class="animate-spin w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full"></div>
+                                    <span v-else class="w-1 h-1 rounded-full bg-current"></span>
+                                </span>
+                                <div class="text-sm font-medium" :class="stageTextClass(idx + 1)">{{ stage }}</div>
+                                <div v-if="stageStatus(idx + 1) === 'active' && progress.detail"
+                                    class="text-xs text-slate-500 dark:text-zinc-500 mt-0.5">
+                                    └─ {{ progress.detail }}
+                                </div>
+                                <div v-else-if="stageStatus(idx + 1) === 'done' && lastDetailFor(idx + 1)"
+                                    class="text-xs text-slate-400 dark:text-zinc-600 mt-0.5">
+                                    {{ lastDetailFor(idx + 1) }}
+                                </div>
+                            </li>
+                        </ol>
+
+                        <!-- Estado final -->
+                        <div v-if="progress.finished && !progress.error"
+                            class="mt-4 px-4 py-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-sm">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-medium">Escaneo completado.</span>
+                            Los resultados aparecen abajo.
+                        </div>
+                        <div v-if="progress.finished && progress.error"
+                            class="mt-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm">
+                            <div class="font-medium text-red-800 dark:text-red-200">El escaneo falló</div>
+                            <p class="text-xs text-red-700 dark:text-red-300 mt-1">{{ progress.error }}</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ===================================================== -->
+                <!-- Sección 3 — Resultados                                 -->
+                <!-- ===================================================== -->
+                <!-- Mientras hay un escaneo en curso ocultamos la sección para no mostrar -->
+                <!-- datos del escaneo anterior junto al timeline activo (sería confuso). -->
+                <section v-if="!isScanning && (vulnerabilidades.length > 0 || resumenEjecutivo)" class="space-y-6">
+
+                    <!-- Card: Resumen ejecutivo -->
+                    <div v-if="resumenEjecutivo"
+                        class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-6">
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 text-slate-400 dark:text-zinc-500">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6 15h-6.75c-.621 0-1.125-.504-1.125-1.125V5.625c0-.621.504-1.125 1.125-1.125h4.5l6.75 6.75v9.375c0 .621-.503 1.125-1.125 1.125z" />
+                            </svg>
+                            <h2 class="font-display font-semibold text-sm text-slate-900 dark:text-white">Resumen ejecutivo</h2>
+                        </div>
+                        <div class="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-zinc-400 whitespace-pre-line">{{ resumenEjecutivo }}</div>
+                    </div>
+
+                    <!-- KPIs compactos -->
+                    <div v-if="vulnerabilidades.length > 0"
+                        class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 px-6 py-4 flex flex-wrap items-center gap-x-10 gap-y-3">
+                        <div>
+                            <div class="text-2xl font-display font-bold text-slate-900 dark:text-white">{{ vulnerabilidades.length }}</div>
+                            <div class="text-xs text-slate-500 dark:text-zinc-500">Total CVEs</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-200 dark:bg-zinc-800 hidden sm:block"></div>
+                        <div>
+                            <div class="text-2xl font-display font-bold text-slate-900 dark:text-white">{{ activosUnicos }}</div>
+                            <div class="text-xs text-slate-500 dark:text-zinc-500">SO(s) con CVEs{{ inventario.n_activos ? ` / ${inventario.n_activos} en inventario` : '' }}</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-200 dark:bg-zinc-800 hidden sm:block"></div>
+                        <div>
+                            <div class="text-2xl font-display font-bold text-red-800 dark:text-red-500">{{ conteoPrioridad['Prioritaria'] || 0 }}</div>
+                            <div class="text-xs text-slate-500 dark:text-zinc-500">Prioritarias</div>
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto scrollbar-thin">
-                        <table class="min-w-full text-left text-sm">
-                            <thead class="text-xs uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400">
-                                <tr>
-                                    <th class="px-4 py-3">SO / Activo</th>
-                                    <th class="px-4 py-3">CVE</th>
-                                    <th class="px-4 py-3">Severidad</th>
-                                    <th class="px-4 py-3" title="Prioridad combinando CVSS técnico + criticidad del activo">Prioridad</th>
-                                    <th class="px-4 py-3 min-w-[260px]">Descripción técnica</th>
-                                    <th class="px-4 py-3 min-w-[260px]">Explicación simple</th>
-                                    <th class="px-4 py-3 min-w-[260px]">Remediación</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                                <tr v-for="vuln in vulnsFiltradas" :key="vuln.cve_id + vuln.so"
-                                    class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                                    <td class="px-4 py-3 font-medium align-top">
-                                        <div>{{ vuln.so }}</div>
-                                        <div class="text-xs text-slate-400">
-                                            <span v-if="vuln.criticidad">crítica: {{ vuln.criticidad }}</span>
-                                            <span v-else>{{ vuln.version }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank"
-                                            class="text-cyan-600 dark:text-cyan-400 hover:underline">
-                                            {{ vuln.cve_id }}
-                                        </a>
-                                        <div v-if="vuln.cvss_score" class="text-xs text-slate-400 mt-0.5">CVSS {{ vuln.cvss_score }}</div>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <span :class="['px-2 py-0.5 rounded text-xs font-bold', getSeverityClass(vuln.severity)]">
-                                            {{ vuln.severity || 'N/A' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <span :class="['px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap', getPriorityClass(vuln.prioridad)]"
-                                              :title="getPriorityDescription(vuln.prioridad)">
-                                            {{ vuln.prioridad || '—' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 align-top whitespace-normal text-slate-700 dark:text-slate-300">{{ vuln.description }}</td>
-                                    <td class="px-4 py-3 align-top whitespace-normal text-slate-600 dark:text-slate-400">{{ vuln.explicacion_simple || '—' }}</td>
-                                    <td class="px-4 py-3 align-top whitespace-normal text-emerald-700 dark:text-emerald-300">{{ vuln.remediacion }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <div v-if="vulnsFiltradas.length === 0" class="px-6 py-10 text-center text-slate-400">
-                            Sin resultados que coincidan con los filtros.
+                    <!-- Charts: severidad + top activos -->
+                    <div v-if="vulnerabilidades.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-5">
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-3">Distribución por severidad</div>
+                            <div class="h-64">
+                                <canvas ref="severityCanvas"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-5">
+                            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-3">Top 5 activos con más vulnerabilidades</div>
+                            <div class="h-64">
+                                <canvas ref="assetsCanvas"></canvas>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
 
-            <!-- Estado vacío inicial -->
-            <section v-else-if="!isScanning"
-                class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-slate-500 dark:text-slate-400">
-                Aún no hay resultados. Sube tu inventario y ejecuta el primer escaneo.
-            </section>
-        </main>
+                    <!-- Leyenda explicativa de prioridades -->
+                    <div v-if="vulnerabilidades.length > 0"
+                         class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-5 text-xs text-slate-500 dark:text-zinc-500">
+                        <div class="font-semibold text-slate-700 dark:text-zinc-300 mb-2">¿Cómo se calcula la Prioridad?</div>
+                        <p class="mb-2">Combina la severidad técnica del CVE (CVSS) con la criticidad del activo en el negocio:</p>
+                        <ul class="space-y-1 list-disc pl-5">
+                            <li><span class="font-semibold text-red-800 dark:text-red-500">Prioritaria</span> — CVSS ≥ 7 + activo Alta. Atención inmediata.</li>
+                            <li><span class="font-semibold text-amber-600 dark:text-amber-400">Por validar</span> — ambigüedad entre técnico y negocio. Requiere revisión humana.</li>
+                            <li><span class="font-semibold text-slate-600 dark:text-zinc-400">Planificada</span> — riesgo real pero no urgente. Se agenda en mantenimiento normal.</li>
+                        </ul>
+                    </div>
 
-        <footer class="max-w-7xl mx-auto px-6 py-6 text-xs text-slate-400 dark:text-slate-600">
-            VulnAI · Pipeline NVD + Gemini
-        </footer>
+                    <!-- Card: Tabla con filtros + descargas -->
+                    <div class="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+                        <div class="p-5 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-3 justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 text-slate-400 dark:text-zinc-500">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                </svg>
+                                <h2 class="font-display font-semibold text-sm text-slate-900 dark:text-white">Vulnerabilidades detectadas</h2>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input v-model="filtroBusqueda" type="text" placeholder="Buscar SO, CVE o descripción…"
+                                    class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-slate-400 w-56">
+                                <select v-model="filtroPrioridad"
+                                    class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                                    <option value="">Todas las prioridades</option>
+                                    <option v-for="p in prioridadesDisponibles" :key="p" :value="p">{{ p }}</option>
+                                </select>
+                                <select v-model="filtroSeveridad"
+                                    class="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-slate-400">
+                                    <option value="">Todas las severidades</option>
+                                    <option v-for="sev in severidadesDisponibles" :key="sev" :value="sev">{{ sev }}</option>
+                                </select>
+                                <a href="/api/csv" download
+                                    class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 12m0 0l4.5-4.5M12 12V3" />
+                                    </svg>
+                                    CSV
+                                </a>
+                                <a href="/api/excel" download
+                                    class="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 12m0 0l4.5-4.5M12 12V3" />
+                                    </svg>
+                                    Excel
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto scrollbar-thin">
+                            <table class="min-w-full text-left text-xs">
+                                <thead class="text-[11px] uppercase tracking-wider bg-slate-50/70 dark:bg-zinc-800/40 text-slate-400 dark:text-zinc-500">
+                                    <tr>
+                                        <th class="px-4 py-2.5 font-semibold">SO / Activo</th>
+                                        <th class="px-4 py-2.5 font-semibold">CVE</th>
+                                        <th class="px-4 py-2.5 font-semibold">Severidad</th>
+                                        <th class="px-4 py-2.5 font-semibold" title="Prioridad combinando CVSS técnico + criticidad del activo">Prioridad</th>
+                                        <th class="px-4 py-2.5 font-semibold min-w-[240px]">Descripción técnica</th>
+                                        <th class="px-4 py-2.5 font-semibold min-w-[240px]">Explicación simple</th>
+                                        <th class="px-4 py-2.5 font-semibold min-w-[240px]">Remediación</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/70">
+                                    <tr v-for="vuln in vulnsFiltradas" :key="vuln.cve_id + vuln.so"
+                                        class="hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition">
+                                        <td class="px-4 py-2.5 font-medium align-top text-slate-700 dark:text-zinc-300">
+                                            <div>{{ vuln.so }}</div>
+                                            <div class="text-[11px] text-slate-400 dark:text-zinc-600">
+                                                <span v-if="vuln.criticidad">crítica: {{ vuln.criticidad }}</span>
+                                                <span v-else>{{ vuln.version }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-2.5 align-top">
+                                            <a :href="'https://nvd.nist.gov/vuln/detail/' + vuln.cve_id" target="_blank"
+                                                class="text-slate-900 dark:text-zinc-100 underline decoration-slate-300 dark:decoration-zinc-700 hover:decoration-slate-500 dark:hover:decoration-zinc-400">
+                                                {{ vuln.cve_id }}
+                                            </a>
+                                            <div v-if="vuln.cvss_score" class="text-[11px] text-slate-400 dark:text-zinc-600 mt-0.5">CVSS {{ vuln.cvss_score }}</div>
+                                        </td>
+                                        <td class="px-4 py-2.5 align-top">
+                                            <span :class="['px-2 py-0.5 rounded text-[11px] font-bold', getSeverityClass(vuln.severity)]">
+                                                {{ vuln.severity || 'N/A' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 align-top">
+                                            <span :class="['px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap', getPriorityClass(vuln.prioridad)]"
+                                                  :title="getPriorityDescription(vuln.prioridad)">
+                                                {{ vuln.prioridad || '—' }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 align-top whitespace-normal text-slate-600 dark:text-zinc-400">{{ vuln.description }}</td>
+                                        <td class="px-4 py-2.5 align-top whitespace-normal text-slate-500 dark:text-zinc-500">{{ vuln.explicacion_simple || '—' }}</td>
+                                        <td class="px-4 py-2.5 align-top whitespace-normal text-emerald-700 dark:text-emerald-400">{{ vuln.remediacion }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div v-if="vulnsFiltradas.length === 0" class="px-6 py-10 text-center text-slate-400 dark:text-zinc-600 text-sm">
+                                Sin resultados que coincidan con los filtros.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Estado vacío inicial -->
+                <section v-else-if="!isScanning"
+                    class="bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 p-10 text-center text-slate-400 dark:text-zinc-600 text-sm">
+                    Aún no hay resultados. Sube tu inventario y ejecuta el primer escaneo.
+                </section>
+            </main>
+
+            <footer class="max-w-7xl w-full mx-auto px-8 py-6 text-xs text-slate-400 dark:text-zinc-600">
+                VulnAI · Pipeline NVD + Gemini
+            </footer>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+        const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
 
         const STAGES = [
             'Cargando inventario',
@@ -354,6 +449,46 @@
             'Generando Excel',
         ];
 
+        const SEVERITY_META = {
+            CRITICAL: { badge: 'bg-red-900 text-white', hex: '#7f1d1d' },
+            HIGH:     { badge: 'bg-orange-500 text-white', hex: '#f97316' },
+            MEDIUM:   { badge: 'bg-amber-500 text-slate-900', hex: '#f59e0b' },
+            LOW:      { badge: 'bg-slate-400 text-white', hex: '#94a3b8' },
+        };
+        const SEVERITY_FALLBACK = { badge: 'bg-slate-300 text-slate-700', hex: '#cbd5e1' };
+
+        const findSeverityMeta = (sev) => {
+            const s = (sev || '').toUpperCase();
+            const key = Object.keys(SEVERITY_META).find(k => s.includes(k));
+            return key ? SEVERITY_META[key] : SEVERITY_FALLBACK;
+        };
+
+        // Datos de prueba para previsualizar el diseño sin depender del backend.
+        const DEMO_INVENTARIO = {
+            filename: 'inventario_demo.xlsx',
+            n_activos: 6,
+            ejemplos: ['WIN-SRV-DB01', 'WIN-SRV-APP02', 'LNX-WEB01', 'LNX-WEB02'],
+        };
+        const DEMO_RESUMEN = `Se detectaron 14 vulnerabilidades sobre 6 activos del inventario, concentradas principalmente en servidores Windows expuestos a Internet.
+Tres CVEs críticos afectan a WIN-SRV-DB01, un activo clasificado como Alta criticidad de negocio, por lo que quedan marcados como Prioritaria.
+Se recomienda planificar una ventana de mantenimiento esta semana para aplicar los parches de SMBv1 y OpenSSL antes de continuar con el resto del backlog.`;
+        const DEMO_VULNERABILIDADES = [
+            { so: 'WIN-SRV-DB01', version: 'Windows Server 2016', criticidad: 'Alta', cve_id: 'CVE-2017-0144', cvss_score: 9.3, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'Vulnerabilidad de ejecución remota de código en el servicio SMBv1 (EternalBlue).', explicacion_simple: 'Un atacante en la red podría tomar control total del servidor sin necesitar credenciales.', remediacion: 'Aplicar MS17-010 y deshabilitar SMBv1.' },
+            { so: 'WIN-SRV-DB01', version: 'Windows Server 2016', criticidad: 'Alta', cve_id: 'CVE-2021-34527', cvss_score: 8.8, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'PrintNightmare: ejecución remota de código en el servicio Print Spooler.', explicacion_simple: 'Permite instalar drivers maliciosos y ejecutar código como sistema.', remediacion: 'Instalar el parche de julio 2021 o deshabilitar el servicio Print Spooler.' },
+            { so: 'WIN-SRV-DB01', version: 'Windows Server 2016', criticidad: 'Alta', cve_id: 'CVE-2020-1472', cvss_score: 10.0, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'Zerologon: elevación de privilegios en Netlogon.', explicacion_simple: 'Un atacante puede volverse administrador de dominio en segundos.', remediacion: 'Aplicar el parche de agosto 2020 y forzar modo enforcement.' },
+            { so: 'WIN-SRV-APP02', version: 'Windows Server 2019', criticidad: 'Alta', cve_id: 'CVE-2022-26809', cvss_score: 9.8, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'Ejecución remota de código en RPC runtime library.', explicacion_simple: 'Explotable de forma remota sin autenticación previa.', remediacion: 'Aplicar el parche acumulativo de abril 2022.' },
+            { so: 'WIN-SRV-APP02', version: 'Windows Server 2019', criticidad: 'Alta', cve_id: 'CVE-2023-23397', cvss_score: 8.1, severity: 'HIGH', prioridad: 'Prioritaria', description: 'Elevación de privilegios en Microsoft Outlook mediante recordatorios de tareas.', explicacion_simple: 'Un correo malicioso puede robar credenciales sin que el usuario lo abra.', remediacion: 'Aplicar el parche de marzo 2023.' },
+            { so: 'LNX-WEB01', version: 'Ubuntu 20.04', criticidad: 'Media', cve_id: 'CVE-2022-0778', cvss_score: 7.5, severity: 'HIGH', prioridad: 'Por validar', description: 'Denegación de servicio en OpenSSL por bucle infinito al procesar certificados.', explicacion_simple: 'Un certificado malformado puede colgar el servicio web.', remediacion: 'Actualizar OpenSSL a la versión parcheada.' },
+            { so: 'LNX-WEB01', version: 'Ubuntu 20.04', criticidad: 'Media', cve_id: 'CVE-2021-3156', cvss_score: 7.8, severity: 'HIGH', prioridad: 'Por validar', description: 'Desbordamiento de heap en sudo (Baron Samedit).', explicacion_simple: 'Un usuario local sin privilegios puede volverse root.', remediacion: 'Actualizar el paquete sudo a la versión más reciente.' },
+            { so: 'LNX-WEB02', version: 'Ubuntu 20.04', criticidad: 'Media', cve_id: 'CVE-2021-44228', cvss_score: 10.0, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'Log4Shell: ejecución remota de código en Apache Log4j.', explicacion_simple: 'Basta con enviar una cadena especial para ejecutar código en el servidor.', remediacion: 'Actualizar Log4j a 2.17.1 o superior.' },
+            { so: 'LNX-WEB02', version: 'Ubuntu 20.04', criticidad: 'Media', cve_id: 'CVE-2019-11477', cvss_score: 6.5, severity: 'MEDIUM', prioridad: 'Planificada', description: 'SACK Panic: denegación de servicio en el manejo de TCP SACK del kernel Linux.', explicacion_simple: 'Un atacante remoto puede colgar el servidor con paquetes especialmente diseñados.', remediacion: 'Actualizar el kernel a una versión parcheada.' },
+            { so: 'WIN-DC01', version: 'Windows Server 2012 R2', criticidad: 'Alta', cve_id: 'CVE-2014-6321', cvss_score: 9.3, severity: 'CRITICAL', prioridad: 'Prioritaria', description: 'WinShock: ejecución remota de código en SChannel (TLS/SSL).', explicacion_simple: 'Un paquete TLS malicioso puede comprometer el controlador de dominio.', remediacion: 'Aplicar MS14-066.' },
+            { so: 'WIN-DC01', version: 'Windows Server 2012 R2', criticidad: 'Alta', cve_id: 'CVE-2018-8581', cvss_score: 7.4, severity: 'HIGH', prioridad: 'Por validar', description: 'Elevación de privilegios en Microsoft Exchange Server.', explicacion_simple: 'Permite hacerse pasar por otros usuarios del dominio.', remediacion: 'Aplicar la actualización de seguridad de Exchange.' },
+            { so: 'LNX-APP03', version: 'CentOS 7', criticidad: 'Baja', cve_id: 'CVE-2016-5195', cvss_score: 7.0, severity: 'HIGH', prioridad: 'Planificada', description: 'Dirty COW: escalada de privilegios por condición de carrera en el kernel.', explicacion_simple: 'Un usuario local puede modificar archivos de solo lectura y volverse root.', remediacion: 'Actualizar el kernel de Linux.' },
+            { so: 'LNX-APP03', version: 'CentOS 7', criticidad: 'Baja', cve_id: 'CVE-2020-8617', cvss_score: 4.3, severity: 'MEDIUM', prioridad: 'Planificada', description: 'Denegación de servicio en BIND al procesar respuestas TSIG.', explicacion_simple: 'Puede tumbar el servicio DNS interno temporalmente.', remediacion: 'Actualizar BIND a una versión parcheada.' },
+            { so: 'LNX-APP03', version: 'CentOS 7', criticidad: 'Baja', cve_id: 'CVE-2019-9636', cvss_score: 3.7, severity: 'LOW', prioridad: 'Planificada', description: 'Confusión de tipos en el manejo de URLs de Python que expone credenciales.', explicacion_simple: 'Riesgo bajo, requiere condiciones muy específicas para ser explotado.', remediacion: 'Actualizar Python a una versión reciente.' },
+        ];
+
         createApp({
             setup() {
                 // Theme
@@ -363,6 +498,15 @@
                     document.documentElement.classList.toggle('dark', isDark.value);
                     localStorage.setItem('theme', isDark.value ? 'dark' : 'light');
                 };
+
+                // Navegación del sidebar
+                const currentView = ref('dashboard');
+                const navBtnClass = (view) => [
+                    'w-10 h-10 flex items-center justify-center rounded-lg transition',
+                    currentView.value === view
+                        ? 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                        : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-700 dark:hover:text-zinc-200',
+                ];
 
                 // Inventario / upload
                 const dragOver = ref(false);
@@ -417,15 +561,15 @@
                 };
                 const stageIconClass = (n) => {
                     const s = stageStatus(n);
-                    if (s === 'done') return 'bg-emerald-500 text-white';
-                    if (s === 'active') return 'bg-cyan-500 text-white';
-                    return 'bg-slate-200 dark:bg-slate-700 text-slate-400';
+                    if (s === 'done') return 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900';
+                    if (s === 'active') return 'bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900';
+                    return 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-600';
                 };
                 const stageTextClass = (n) => {
                     const s = stageStatus(n);
-                    if (s === 'done') return 'text-slate-700 dark:text-slate-300';
-                    if (s === 'active') return 'text-cyan-700 dark:text-cyan-300 font-semibold';
-                    return 'text-slate-400';
+                    if (s === 'done') return 'text-slate-700 dark:text-zinc-300';
+                    if (s === 'active') return 'text-slate-900 dark:text-zinc-100 font-semibold';
+                    return 'text-slate-400 dark:text-zinc-600';
                 };
                 const lastDetailFor = (n) => stageDetails.value[n] || '';
 
@@ -505,6 +649,18 @@
                     } catch (e) { /* noop */ }
                 };
 
+                // Carga datos de prueba en el navegador, sin llamar al backend.
+                // Sirve para previsualizar el rediseño y los gráficos sin correr el pipeline real.
+                const cargarDatosDemo = () => {
+                    stopPolling();
+                    isScanning.value = false;
+                    progress.value = { stage_idx: 0, total: 8, label: '', detail: '', finished: false, error: null };
+                    inventario.value = { ...DEMO_INVENTARIO };
+                    uploadStatus.value = 'ok';
+                    resumenEjecutivo.value = DEMO_RESUMEN;
+                    vulnerabilidades.value = DEMO_VULNERABILIDADES;
+                };
+
                 // Filtros y derivados
                 const filtroSeveridad = ref('');
                 const filtroPrioridad = ref('');
@@ -538,6 +694,13 @@
                 const activosUnicos = computed(() => {
                     return new Set(vulnerabilidades.value.map(v => v.so)).size;
                 });
+                const topActivos = computed(() => {
+                    const counts = {};
+                    for (const v of vulnerabilidades.value) {
+                        counts[v.so] = (counts[v.so] || 0) + 1;
+                    }
+                    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                });
                 const vulnsFiltradas = computed(() => {
                     const q = filtroBusqueda.value.toLowerCase().trim();
                     return vulnerabilidades.value.filter(v => {
@@ -550,20 +713,13 @@
 
                 const canScan = computed(() => uploadStatus.value === 'ok' && !isScanning.value);
 
-                const getSeverityClass = (sev) => {
-                    const s = (sev || '').toUpperCase();
-                    if (s.includes('CRITICAL')) return 'bg-red-600 text-white';
-                    if (s.includes('HIGH')) return 'bg-orange-500 text-white';
-                    if (s.includes('MEDIUM')) return 'bg-yellow-400 text-slate-900';
-                    if (s.includes('LOW')) return 'bg-green-500 text-white';
-                    return 'bg-slate-400 text-white';
-                };
+                const getSeverityClass = (sev) => findSeverityMeta(sev).badge;
 
                 const getPriorityClass = (p) => {
-                    if (p === 'Prioritaria') return 'bg-red-600 text-white';
+                    if (p === 'Prioritaria') return 'bg-red-900 text-white';
                     if (p === 'Por validar') return 'bg-amber-500 text-slate-900';
-                    if (p === 'Planificada') return 'bg-sky-500 text-white';
-                    return 'bg-slate-400 text-white';
+                    if (p === 'Planificada') return 'bg-slate-500 text-white';
+                    return 'bg-slate-300 text-slate-700';
                 };
                 const getPriorityDescription = (p) => {
                     if (p === 'Prioritaria')  return 'CVSS alto + activo crítico → atención inmediata';
@@ -571,6 +727,71 @@
                     if (p === 'Planificada')  return 'Riesgo bajo o moderado → mantenimiento normal';
                     return '';
                 };
+
+                // ===================================================
+                // Gráficos (Chart.js), alimentados por las mismas
+                // variables reactivas que la tabla.
+                // ===================================================
+                const severityCanvas = ref(null);
+                const assetsCanvas = ref(null);
+                let severityChart = null;
+                let assetsChart = null;
+
+                const chartTextColor = () => (isDark.value ? '#a1a1aa' : '#64748b');
+                const chartGridColor = () => (isDark.value ? 'rgba(161,161,170,0.12)' : 'rgba(100,116,139,0.12)');
+
+                const renderSeverityChart = () => {
+                    if (!severityCanvas.value) return;
+                    const data = conteoSeveridad.value;
+                    const labels = Object.keys(data);
+                    const values = Object.values(data);
+                    const colors = labels.map(l => findSeverityMeta(l).hex);
+                    if (severityChart) severityChart.destroy();
+                    severityChart = new Chart(severityCanvas.value, {
+                        type: 'doughnut',
+                        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: isDark.value ? '#18181b' : '#ffffff' }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '68%',
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: chartTextColor(), font: { family: 'Inter', size: 11 }, boxWidth: 10, padding: 12 } },
+                            },
+                        },
+                    });
+                };
+
+                const renderAssetsChart = () => {
+                    if (!assetsCanvas.value) return;
+                    const top = topActivos.value;
+                    const labels = top.map(([so]) => so);
+                    const values = top.map(([, n]) => n);
+                    if (assetsChart) assetsChart.destroy();
+                    assetsChart = new Chart(assetsCanvas.value, {
+                        type: 'bar',
+                        data: { labels, datasets: [{ data: values, backgroundColor: isDark.value ? '#e4e4e7' : '#0f172a', borderRadius: 4, maxBarThickness: 22 }] },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { beginAtZero: true, ticks: { color: chartTextColor(), precision: 0, font: { family: 'Inter', size: 11 } }, grid: { color: chartGridColor() } },
+                                y: { ticks: { color: chartTextColor(), font: { family: 'Inter', size: 11 } }, grid: { display: false } },
+                            },
+                        },
+                    });
+                };
+
+                const renderCharts = () => {
+                    renderSeverityChart();
+                    renderAssetsChart();
+                };
+
+                // flush: 'post' asegura que el <canvas> ya está en el DOM
+                // (recordar que las cards de charts están detrás de un v-if).
+                watch(vulnerabilidades, renderCharts, { flush: 'post' });
+                watch(isDark, renderCharts, { flush: 'post' });
 
                 onMounted(async () => {
                     await Promise.all([fetchVulnerabilidades(), fetchResumen(), fetchInventarioActual()]);
@@ -582,10 +803,15 @@
                         startPolling();
                     }
                 });
-                onUnmounted(stopPolling);
+                onUnmounted(() => {
+                    stopPolling();
+                    if (severityChart) severityChart.destroy();
+                    if (assetsChart) assetsChart.destroy();
+                });
 
                 return {
                     isDark, toggleTheme,
+                    currentView, navBtnClass,
                     dragOver, inventario, uploadStatus, uploadError,
                     handleFileChange, handleDrop,
                     isScanning, stages, progress, ejecutarEscaneo,
@@ -594,8 +820,10 @@
                     filtroSeveridad, filtroPrioridad, filtroBusqueda,
                     severidadesDisponibles, prioridadesDisponibles,
                     conteoSeveridad, conteoPrioridad,
-                    activosUnicos, vulnsFiltradas,
+                    activosUnicos, topActivos, vulnsFiltradas,
                     canScan, getSeverityClass, getPriorityClass, getPriorityDescription,
+                    severityCanvas, assetsCanvas,
+                    cargarDatosDemo,
                 };
             }
         }).mount('#app');
