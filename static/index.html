@@ -206,6 +206,32 @@
                         Sube un inventario válido en el paso 1 para habilitar el escaneo.
                     </p>
 
+                    <!-- Notificaciones por correo (config consumida por n8n) -->
+                    <div class="ml-8 mb-4 mt-2">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4 text-slate-400 dark:text-zinc-600">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                            </svg>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-500">Notificaciones por correo</span>
+                            <span v-if="destinatariosCustom" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">personalizada</span>
+                            <span v-else class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-600">por defecto</span>
+                        </div>
+                        <p class="text-xs text-slate-400 dark:text-zinc-600 mb-2">
+                            Al terminar cada escaneo (manual o semanal) se envía el reporte a estos correos, separados por coma. Vacío = volver a la lista por defecto.
+                        </p>
+                        <div class="flex gap-2">
+                            <input v-model="destinatariosInput" type="text"
+                                placeholder="correo1@dominio.com, correo2@dominio.com"
+                                class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-slate-700 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-slate-400 dark:focus:ring-zinc-500">
+                            <button @click="guardarDestinatarios" :disabled="notifStatus === 'saving'"
+                                class="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-300 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition">
+                                {{ notifStatus === 'saving' ? 'Guardando...' : 'Guardar' }}
+                            </button>
+                        </div>
+                        <p v-if="notifStatus === 'ok'" class="mt-1 text-xs text-emerald-600 dark:text-emerald-400">✓ Destinatarios guardados</p>
+                        <p v-if="notifStatus === 'error'" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ notifError }}</p>
+                    </div>
+
                     <!-- Timeline vertical durante el escaneo -->
                     <div v-if="isScanning || progress.finished" class="ml-2 mt-2">
                         <ol class="space-y-3 border-l-2 border-slate-200 dark:border-zinc-800 ml-3">
@@ -551,6 +577,11 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                     try {
                         const r = await fetch('/api/scan-progress');
                         const data = await r.json();
+                        // Estado viejo (scan anterior): n8n aún no lanzó el scan nuevo.
+                        // Lo ignoramos para no declarar "terminado" un scan que no empezó.
+                        if (data.finished && data.ts && new Date(data.ts).getTime() < scanClickTs) {
+                            return;
+                        }
                         progress.value = data;
                         if (data.detail && data.stage_idx) {
                             stageDetails.value[data.stage_idx] = data.detail;
@@ -573,16 +604,36 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                     if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
                 };
 
+                // Webhook de n8n: dispara el flujo completo (scan + correo + Drive).
+                // Si n8n no está disponible, degradamos a POST /api/scan directo
+                // (el escaneo corre igual, pero sin notificaciones).
+                const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/vulnai-scan';
+
+                // Momento del último clic en "Iniciar escaneo": permite ignorar el
+                // progress.json viejo (finished=true del scan anterior) durante los
+                // segundos que n8n tarda en lanzar el scan nuevo.
+                let scanClickTs = 0;
+
                 const ejecutarEscaneo = async () => {
                     isScanning.value = true;
+                    scanClickTs = Date.now();
                     progress.value = { stage_idx: 0, total: 8, label: 'Iniciando...', detail: '', finished: false, error: null };
                     stageDetails.value = {};
                     try {
-                        const r = await fetch('/api/scan', { method: 'POST' });
-                        if (!r.ok) {
-                            const err = await r.json();
-                            throw new Error(err.detail || 'Error desconocido');
+                        let viaN8n = true;
+                        try {
+                            const r = await fetch(N8N_WEBHOOK_URL, { method: 'POST' });
+                            if (!r.ok) throw new Error(`webhook HTTP ${r.status}`);
+                        } catch (e) {
+                            viaN8n = false;
+                            console.warn('n8n no disponible, escaneo directo sin notificaciones:', e.message);
+                            const r = await fetch('/api/scan', { method: 'POST' });
+                            if (!r.ok) {
+                                const err = await r.json();
+                                throw new Error(err.detail || 'Error desconocido');
+                            }
                         }
+                        progress.value.label = viaN8n ? 'Iniciando (vía n8n, con notificaciones)...' : 'Iniciando (directo, sin notificaciones)...';
                         startPolling();
                     } catch (e) {
                         isScanning.value = false;
@@ -612,6 +663,42 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                         console.error(e);
                     }
                 };
+                // Config de notificaciones (destinatarios del correo del reporte)
+                const destinatariosInput = ref('');
+                const destinatariosCustom = ref(false);
+                const notifStatus = ref('');   // '', 'saving', 'ok', 'error'
+                const notifError = ref('');
+
+                const cargarDestinatarios = async () => {
+                    try {
+                        const r = await fetch('/api/config-notificaciones');
+                        const data = await r.json();
+                        destinatariosInput.value = (data.destinatarios || []).join(', ');
+                        destinatariosCustom.value = !!data.custom;
+                    } catch (e) { /* noop: sección opcional */ }
+                };
+                const guardarDestinatarios = async () => {
+                    notifStatus.value = 'saving';
+                    notifError.value = '';
+                    const lista = destinatariosInput.value.split(',').map(s => s.trim()).filter(Boolean);
+                    try {
+                        const r = await fetch('/api/config-notificaciones', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ destinatarios: lista }),
+                        });
+                        const data = await r.json();
+                        if (!r.ok) throw new Error(data.detail || 'Error desconocido');
+                        destinatariosInput.value = data.destinatarios.join(', ');
+                        destinatariosCustom.value = !!data.custom;
+                        notifStatus.value = 'ok';
+                        setTimeout(() => { if (notifStatus.value === 'ok') notifStatus.value = ''; }, 2500);
+                    } catch (e) {
+                        notifStatus.value = 'error';
+                        notifError.value = e.message;
+                    }
+                };
+
                 const fetchInventarioActual = async () => {
                     try {
                         const r = await fetch('/api/inventario-actual');
@@ -768,7 +855,7 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                 watch(isDark, renderCharts, { flush: 'post' });
 
                 onMounted(async () => {
-                    await Promise.all([fetchVulnerabilidades(), fetchResumen(), fetchInventarioActual()]);
+                    await Promise.all([fetchVulnerabilidades(), fetchResumen(), fetchInventarioActual(), cargarDestinatarios()]);
                     // Si hay un escaneo aún en curso al cargar la página, retomamos polling.
                     const r = await fetch('/api/scan-progress');
                     const data = await r.json();
@@ -790,6 +877,7 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                     isScanning, stages, progress, ejecutarEscaneo,
                     stageStatus, stageIconClass, stageTextClass, lastDetailFor,
                     vulnerabilidades, resumenEjecutivo,
+                    destinatariosInput, destinatariosCustom, notifStatus, notifError, guardarDestinatarios,
                     filtroSeveridad, filtroPrioridad, filtroBusqueda,
                     severidadesDisponibles, prioridadesDisponibles,
                     conteoSeveridad, conteoPrioridad,

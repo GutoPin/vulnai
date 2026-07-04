@@ -30,7 +30,8 @@ scripts/               # Prototipos / scripts legacy (no forman parte de la app)
 ```
 
 Los archivos generados por el scanner van a `data/` y los inventarios subidos a
-`uploads/` (ambos ignorados por git).
+`data/uploads/` (ignorados por git; un único volumen en `/vulnai/data` persiste
+todo al desplegar en Railway/Docker).
 
 ## Requisitos
 

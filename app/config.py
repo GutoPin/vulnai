@@ -16,9 +16,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Directorios de trabajo ---
+# uploads/ vive DENTRO de data/ para que un único volumen (ej. Railway permite
+# uno por servicio, montado en /vulnai/data) persista inventario + resultados.
 STATIC_DIR = BASE_DIR / "static"
-UPLOADS_DIR = BASE_DIR / "uploads"      # inventarios subidos por el usuario
 DATA_DIR = BASE_DIR / "data"            # salidas generadas por el scanner
+UPLOADS_DIR = DATA_DIR / "uploads"      # inventarios subidos por el usuario
 
 # --- Archivos generados por el pipeline ---
 CSV_CRUDO = DATA_DIR / "vulnerabilidades_completas.csv"
@@ -26,6 +28,15 @@ CSV_RESUMEN = DATA_DIR / "gemini_resumen_vulnerabilidades.csv"
 XLSX_RESUMEN = DATA_DIR / "gemini_resumen_vulnerabilidades.xlsx"
 RESUMEN_EJECUTIVO_TXT = DATA_DIR / "resumen_ejecutivo.txt"
 PROGRESS_PATH = DATA_DIR / "progress.json"
+
+# --- Notificaciones ---
+# Config editable desde el dashboard; n8n la consulta antes de enviar el correo.
+CONFIG_NOTIFICACIONES_PATH = DATA_DIR / "config_notificaciones.json"
+DESTINATARIOS_DEFAULT = [
+    "augustopm607@gmail.com",
+    "avalenzuela2903@gmail.com",
+    "fbr.latino4@gmail.com",
+]
 
 # --- Inventario ---
 EXTENSIONES_VALIDAS = {".xlsx", ".xls", ".csv"}

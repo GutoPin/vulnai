@@ -25,6 +25,7 @@ def paths_temporales(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "XLSX_RESUMEN", data / "gemini_resumen_vulnerabilidades.xlsx")
     monkeypatch.setattr(config, "RESUMEN_EJECUTIVO_TXT", data / "resumen_ejecutivo.txt")
     monkeypatch.setattr(config, "PROGRESS_PATH", data / "progress.json")
+    monkeypatch.setattr(config, "CONFIG_NOTIFICACIONES_PATH", data / "config_notificaciones.json")
     return tmp_path
 
 

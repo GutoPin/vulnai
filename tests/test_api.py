@@ -108,3 +108,46 @@ class TestResultados:
         r = client.get("/api/csv")
         assert r.status_code == 200
         assert "csv" in r.headers["content-type"]
+
+
+class TestConfigNotificaciones:
+    def test_sin_config_devuelve_defaults(self, client):
+        r = client.get("/api/config-notificaciones")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["destinatarios"] == config.DESTINATARIOS_DEFAULT
+        assert body["custom"] is False
+
+    def test_guardar_lista_custom(self, client):
+        r = client.post("/api/config-notificaciones",
+                        json={"destinatarios": ["Ana@Empresa.com", "beto@empresa.com"]})
+        assert r.status_code == 200
+        assert r.json()["destinatarios"] == ["ana@empresa.com", "beto@empresa.com"]
+        # GET posterior devuelve lo guardado
+        r = client.get("/api/config-notificaciones")
+        assert r.json()["destinatarios"] == ["ana@empresa.com", "beto@empresa.com"]
+        assert r.json()["custom"] is True
+
+    def test_rechaza_correo_invalido(self, client):
+        r = client.post("/api/config-notificaciones",
+                        json={"destinatarios": ["no-es-un-correo"]})
+        assert r.status_code == 400
+        assert "inválido" in r.json()["detail"]
+
+    def test_deduplica_y_limpia(self, client):
+        r = client.post("/api/config-notificaciones",
+                        json={"destinatarios": [" a@b.co ", "a@b.co", ""]})
+        assert r.status_code == 200
+        assert r.json()["destinatarios"] == ["a@b.co"]
+
+    def test_lista_vacia_vuelve_a_defaults(self, client):
+        client.post("/api/config-notificaciones", json={"destinatarios": ["a@b.co"]})
+        r = client.post("/api/config-notificaciones", json={"destinatarios": []})
+        assert r.json()["custom"] is False
+        assert r.json()["destinatarios"] == config.DESTINATARIOS_DEFAULT
+        assert not config.CONFIG_NOTIFICACIONES_PATH.exists()
+
+    def test_rechaza_mas_de_20(self, client):
+        muchos = [f"user{i}@empresa.com" for i in range(21)]
+        r = client.post("/api/config-notificaciones", json={"destinatarios": muchos})
+        assert r.status_code == 400

@@ -5,6 +5,11 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -30,6 +35,12 @@ jobs:
         # Detiene el pipeline si hay errores críticos de sintaxis o variables no definidas
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=venv,.git
 
+    - name: 4b. Estilo (informativo, no bloquea)
+      continue-on-error: true
+      run: |
+        # Reporte completo de estilo; no rompe el build, solo informa en el log.
+        flake8 . --count --max-line-length=120 --statistics --exclude=venv,.git
+
     - name: 5. Ejecución de Pruebas Unitarias
       run: |
         pytest -v
@@ -37,3 +48,21 @@ jobs:
     - name: 6. Build de imagen Docker
       run: |
         docker build -t vulnai:ci .
+
+    - name: 7. Smoke test del contenedor
+      run: |
+        # Verifica que la imagen construida realmente arranca y responde
+        # (lo mismo que hará Railway al desplegarla).
+        docker run -d --name vulnai-smoke -p 8000:8000 -e GEMINI_API_KEY=dummy vulnai:ci
+        for i in $(seq 1 15); do
+          if curl -sf http://localhost:8000/api/scan-progress > /dev/null; then
+            echo "OK: el contenedor responde."
+            docker rm -f vulnai-smoke
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "ERROR: el contenedor no respondió en 30s. Logs:"
+        docker logs vulnai-smoke
+        docker rm -f vulnai-smoke
+        exit 1
