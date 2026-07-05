@@ -607,7 +607,10 @@ Se recomienda planificar una ventana de mantenimiento esta semana para aplicar l
                 // Webhook de n8n: dispara el flujo completo (scan + correo + Drive).
                 // Si n8n no está disponible, degradamos a POST /api/scan directo
                 // (el escaneo corre igual, pero sin notificaciones).
-                const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook/vulnai-scan';
+                // Local -> n8n local (docker-compose); desplegado -> n8n en Railway.
+                const N8N_WEBHOOK_URL = ['localhost', '127.0.0.1'].includes(location.hostname)
+                    ? 'http://localhost:5678/webhook/vulnai-scan'
+                    : 'https://n8n-production-76b51.up.railway.app/webhook/vulnai-scan';
 
                 // Momento del último clic en "Iniciar escaneo": permite ignorar el
                 // progress.json viejo (finished=true del scan anterior) durante los
