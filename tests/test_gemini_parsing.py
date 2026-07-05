@@ -4,7 +4,28 @@
 Solo se testea la lógica pura (prompt y parseo); las llamadas de red no.
 """
 
-from app.infrastructure.gemini import build_instruction_header, parsear_filas_markdown
+from app.infrastructure.gemini import (
+    build_instruction_header,
+    es_error_transitorio,
+    parsear_filas_markdown,
+)
+
+
+class TestEsErrorTransitorio:
+    def test_reintenta_rate_limit_429(self):
+        assert es_error_transitorio("ClientError: 429 RESOURCE_EXHAUSTED. {...}")
+
+    def test_reintenta_503_unavailable(self):
+        assert es_error_transitorio(
+            "ServerError: 503 UNAVAILABLE. {'error': {'code': 503, "
+            "'message': 'The service is currently unavailable.', 'status': 'UNAVAILABLE'}}")
+
+    def test_reintenta_500_internal(self):
+        assert es_error_transitorio("ServerError: 500 INTERNAL. {...}")
+
+    def test_no_reintenta_errores_permanentes(self):
+        assert not es_error_transitorio("ClientError: 400 INVALID_ARGUMENT. API key not valid")
+        assert not es_error_transitorio("ClientError: 403 PERMISSION_DENIED")
 
 FILA_VALIDA = (
     "| Windows 10 |  | CVE-2024-0001 | 2024-01-01 | 2024-02-01 "

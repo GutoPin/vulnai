@@ -47,6 +47,13 @@ def build_instruction_header(no_header_rows=True, max_words=40) -> str:
     return "\n".join(parts)
 
 
+def es_error_transitorio(msg: str) -> bool:
+    """True si el error de Gemini amerita reintento: 429 (rate limit) o
+    500/503 (servicio sobrecargado o momentáneamente caído)."""
+    tokens = ("429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE", "500", "INTERNAL")
+    return any(t in msg for t in tokens)
+
+
 def _extraer_retry_delay(err) -> int:
     """Extrae el retryDelay sugerido por Gemini en errores 429. Default 60s."""
     try:
@@ -85,10 +92,9 @@ def call_gemini_on_chunk(client, model_name: str, instructions: str, tsv_chunk: 
             return "".join(out)
         except Exception as e:
             msg = str(e)
-            is_429 = "429" in msg or "RESOURCE_EXHAUSTED" in msg
-            if is_429 and attempt < max_retries:
+            if es_error_transitorio(msg) and attempt < max_retries:
                 wait = _extraer_retry_delay(e)
-                print(f"     Gemini rate limit. Esperando {wait}s (intento {attempt}/{max_retries})...")
+                print(f"     Gemini no disponible ({msg[:80]}...). Esperando {wait}s (intento {attempt}/{max_retries})...")
                 time.sleep(wait)
                 continue
             raise
@@ -180,9 +186,9 @@ def generar_resumen_ejecutivo(client, df_resumen: pd.DataFrame) -> str:
                     out.append(piece.text)
             return "".join(out).strip()
         except Exception as e:
-            if ("429" in str(e) or "RESOURCE_EXHAUSTED" in str(e)) and attempt < 5:
+            if es_error_transitorio(str(e)) and attempt < 5:
                 wait = _extraer_retry_delay(e)
-                print(f"  Resumen ejecutivo: rate limit, esperando {wait}s (intento {attempt}/5)...")
+                print(f"  Resumen ejecutivo: Gemini no disponible, esperando {wait}s (intento {attempt}/5)...")
                 time.sleep(wait)
                 continue
             raise
